@@ -1,8 +1,8 @@
-# /plan — Create or resume a feature plan
+# /planager — Create or resume a feature plan
 
-When the user invokes `/plan`, follow this workflow.
+When the user invokes `/planager`, follow this workflow.
 
-## If given a description (e.g. `/plan add dark mode support`)
+## If given a description (e.g. `/planager add dark mode support`)
 
 1. Choose a short slug from the description (e.g. `dark-mode`).
 2. Check if `.plans/<slug>.md` already exists.
@@ -17,7 +17,7 @@ When the user invokes `/plan`, follow this workflow.
 7. Ask the user if they want to begin implementation now.
    - If yes, set `status: in-progress` and start from Phase 1, step 1.
 
-## If invoked without a description (e.g. just `/plan`)
+## If invoked without a description (e.g. just `/planager`)
 
 1. Glob `.plans/*.md` and read the frontmatter of each.
 2. List any `in-progress` or `blocked` plans.

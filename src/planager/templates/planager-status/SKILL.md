@@ -1,6 +1,6 @@
-# /plan-status — Show status of all feature plans
+# /planager-status — Show status of all feature plans
 
-When the user invokes `/plan-status`, do the following:
+When the user invokes `/planager-status`, do the following:
 
 1. Glob `.plans/*.md` to find all plan files.
 2. If no plans exist, say so and exit.

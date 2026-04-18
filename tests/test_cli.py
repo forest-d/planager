@@ -9,17 +9,17 @@ class TestInitProject:
         init_project(tmp_path)
         assert (tmp_path / ".plans").is_dir()
 
-    def test_creates_plan_skill(self, tmp_path):
+    def test_creates_planager_skill(self, tmp_path):
         init_project(tmp_path)
-        skill = tmp_path / ".claude" / "skills" / "plan" / "SKILL.md"
+        skill = tmp_path / ".claude" / "skills" / "planager" / "SKILL.md"
         assert skill.exists()
-        assert "/plan" in skill.read_text()
+        assert "/planager" in skill.read_text()
 
-    def test_creates_plan_status_skill(self, tmp_path):
+    def test_creates_planager_status_skill(self, tmp_path):
         init_project(tmp_path)
-        skill = tmp_path / ".claude" / "skills" / "plan-status" / "SKILL.md"
+        skill = tmp_path / ".claude" / "skills" / "planager-status" / "SKILL.md"
         assert skill.exists()
-        assert "/plan-status" in skill.read_text()
+        assert "/planager-status" in skill.read_text()
 
     def test_creates_claude_md(self, tmp_path):
         init_project(tmp_path)
@@ -75,8 +75,8 @@ class TestInitProject:
         actions = init_project(tmp_path)
         assert len(actions) == 5
         assert any(".plans/" in a for a in actions)
-        assert any("plan/SKILL.md" in a for a in actions)
-        assert any("plan-status/SKILL.md" in a for a in actions)
+        assert any("planager/SKILL.md" in a for a in actions)
+        assert any("planager-status/SKILL.md" in a for a in actions)
         assert any("CLAUDE.md" in a for a in actions)
         assert any("AGENTS.md" in a for a in actions)
 

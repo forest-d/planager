@@ -31,8 +31,8 @@ a few template files into your project and you're done.
 After `planager init`, your project gets:
 
 - **`.plans/`** — directory where feature plans live (markdown files).
-- **`.claude/skills/plan/`** — a `/plan` slash command for creating and resuming plans.
-- **`.claude/skills/plan-status/`** — a `/plan-status` slash command for checking progress.
+- **`.claude/skills/planager/`** — a `/planager` slash command for creating and resuming plans.
+- **`.claude/skills/planager-status/`** — a `/planager-status` slash command for checking progress.
 - **CLAUDE.md snippet** — instructions that make the agent automatically discover
   and follow plans without you having to ask.
 
@@ -80,15 +80,15 @@ No special tools or MCP servers — the agent reads and writes plain markdown fi
 
 ## Slash commands
 
-### `/plan`
+### `/planager`
 
 Create a new feature plan or resume an existing one.
 
-- With a description: `/plan add dark mode support` — explores the codebase,
+- With a description: `/planager add dark mode support` — explores the codebase,
   drafts a phased plan, asks for approval.
-- Without: `/plan` — lists in-progress plans and offers to resume or create new.
+- Without: `/planager` — lists in-progress plans and offers to resume or create new.
 
-### `/plan-status`
+### `/planager-status`
 
 Show progress across all plans:
 

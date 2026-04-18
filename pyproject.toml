@@ -1,6 +1,6 @@
 [project]
 name = "planager"
-version = "0.2.0"
+version = "0.3.0"
 description = "Feature plans for LLM-assisted development. One command sets up your project so coding agents automatically create, follow, and maintain structured plans."
 requires-python = ">=3.10"
 license = "MIT"

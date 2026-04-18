@@ -60,7 +60,7 @@ def init_project(target: Path) -> list[str]:
 
     # 2. Copy skill files (Claude Code only)
     skills_dir = target / ".claude" / "skills"
-    for skill_name in ("plan", "plan-status"):
+    for skill_name in ("planager", "planager-status"):
         skill_dest = skills_dir / skill_name / "SKILL.md"
         skill_src = template_dir / skill_name / "SKILL.md"
 
@@ -113,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         for action in actions:
             print(f"  {action}")
         print("\nDone. Your coding agent will now automatically use plans.")
-        print("  Claude Code:  /plan <description>  or  /plan-status")
+        print("  Claude Code:  /planager <description>  or  /planager-status")
         print("  Any agent:    ask it to create a plan for your feature")
         return 0
 
