@@ -1,6 +1,6 @@
 [project]
 name = "planager"
-version = "0.1.0"
+version = "0.1.2"
 description = "Feature plans for LLM-assisted development. One command sets up your project so coding agents automatically create, follow, and maintain structured plans."
 requires-python = ">=3.10"
 license = "MIT"
@@ -27,8 +27,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/planager"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/planager/templates" = "planager/templates"
 
 [tool.ruff]
 target-version = "py312"

@@ -6,6 +6,16 @@ One command sets up your project so coding agents (Claude Code, Codex, etc.)
 automatically create, follow, and maintain structured feature plans across
 sessions.
 
+## Prerequisites
+
+planager uses [uv](https://docs.astral.sh/uv/) to run. If you don't have it:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+See the [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/) for other methods.
+
 ## Install
 
 ```bash

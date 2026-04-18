@@ -102,7 +102,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Initialized planager in {target}\n")
         for action in actions:
             print(f"  {action}")
-        print("\nDone. Start a Claude Code session and plans will work automatically.")
+        print("\nDone. In Claude Code, try:")
+        print("  /plan <description>   — create a feature plan")
+        print("  /plan                 — resume an in-progress plan")
+        print("  /plan-status          — see progress across all plans")
         return 0
 
     return 1
