@@ -29,6 +29,14 @@ class TestInitProject:
         assert SNIPPET_MARKER in content
         assert "Feature Plans" in content
 
+    def test_creates_agents_md(self, tmp_path):
+        init_project(tmp_path)
+        agents_md = tmp_path / "AGENTS.md"
+        assert agents_md.exists()
+        content = agents_md.read_text()
+        assert SNIPPET_MARKER in content
+        assert "Feature Plans" in content
+
     def test_appends_to_existing_claude_md(self, tmp_path):
         claude_md = tmp_path / "CLAUDE.md"
         claude_md.write_text("# My Project\n\nExisting content.\n")
@@ -40,6 +48,17 @@ class TestInitProject:
         assert "Existing content." in content
         assert SNIPPET_MARKER in content
 
+    def test_appends_to_existing_agents_md(self, tmp_path):
+        agents_md = tmp_path / "AGENTS.md"
+        agents_md.write_text("# Agent Instructions\n\nExisting.\n")
+
+        init_project(tmp_path)
+
+        content = agents_md.read_text()
+        assert content.startswith("# Agent Instructions")
+        assert "Existing." in content
+        assert SNIPPET_MARKER in content
+
     def test_idempotent(self, tmp_path):
         actions1 = init_project(tmp_path)
         actions2 = init_project(tmp_path)
@@ -48,16 +67,18 @@ class TestInitProject:
         assert all("skipped" in a for a in actions2)
 
         # Content not duplicated
-        claude_md = (tmp_path / "CLAUDE.md").read_text()
-        assert claude_md.count(SNIPPET_MARKER) == 1
+        for filename in ("CLAUDE.md", "AGENTS.md"):
+            content = (tmp_path / filename).read_text()
+            assert content.count(SNIPPET_MARKER) == 1
 
     def test_returns_actions(self, tmp_path):
         actions = init_project(tmp_path)
-        assert len(actions) == 4
+        assert len(actions) == 5
         assert any(".plans/" in a for a in actions)
         assert any("plan/SKILL.md" in a for a in actions)
         assert any("plan-status/SKILL.md" in a for a in actions)
         assert any("CLAUDE.md" in a for a in actions)
+        assert any("AGENTS.md" in a for a in actions)
 
 
 class TestMain:
@@ -66,6 +87,7 @@ class TestMain:
         assert ret == 0
         assert (tmp_path / ".plans").is_dir()
         assert (tmp_path / "CLAUDE.md").exists()
+        assert (tmp_path / "AGENTS.md").exists()
 
     def test_no_subcommand_shows_help(self, capsys):
         ret = main([])

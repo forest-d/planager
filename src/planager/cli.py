@@ -13,10 +13,33 @@ SNIPPET_END_MARKER = "<!-- planager:end -->"
 
 TEMPLATES = files("planager.templates")
 
+INSTRUCTION_FILES = {
+    "CLAUDE.md": "CLAUDE.md.snippet",
+    "AGENTS.md": "AGENTS.md.snippet",
+}
+
 
 def get_template_path() -> Path:
     """Resolve the templates directory to a filesystem path."""
     return Path(str(TEMPLATES))
+
+
+def _install_snippet(target: Path, filename: str, template_name: str, template_dir: Path) -> str:
+    """Append a planager snippet to an instruction file. Returns action description."""
+    dest = target / filename
+    snippet = (template_dir / template_name).read_text()
+    wrapped_snippet = f"{SNIPPET_MARKER}\n{snippet}{SNIPPET_END_MARKER}\n"
+
+    if dest.exists():
+        existing = dest.read_text()
+        if SNIPPET_MARKER in existing:
+            return f"{filename} already has planager snippet, skipped"
+        with dest.open("a") as f:
+            f.write("\n" + wrapped_snippet)
+        return f"Appended planager snippet to {filename}"
+
+    dest.write_text(wrapped_snippet)
+    return f"Created {filename} with planager snippet"
 
 
 def init_project(target: Path) -> list[str]:
@@ -35,7 +58,7 @@ def init_project(target: Path) -> list[str]:
     else:
         actions.append(".plans/ already exists, skipped")
 
-    # 2. Copy skill files
+    # 2. Copy skill files (Claude Code only)
     skills_dir = target / ".claude" / "skills"
     for skill_name in ("plan", "plan-status"):
         skill_dest = skills_dir / skill_name / "SKILL.md"
@@ -48,22 +71,9 @@ def init_project(target: Path) -> list[str]:
             shutil.copy2(str(skill_src), str(skill_dest))
             actions.append(f"Created .claude/skills/{skill_name}/SKILL.md")
 
-    # 3. Append CLAUDE.md snippet
-    claude_md = target / "CLAUDE.md"
-    snippet = (template_dir / "CLAUDE.md.snippet").read_text()
-    wrapped_snippet = f"{SNIPPET_MARKER}\n{snippet}{SNIPPET_END_MARKER}\n"
-
-    if claude_md.exists():
-        existing = claude_md.read_text()
-        if SNIPPET_MARKER in existing:
-            actions.append("CLAUDE.md already has planager snippet, skipped")
-        else:
-            with claude_md.open("a") as f:
-                f.write("\n" + wrapped_snippet)
-            actions.append("Appended planager snippet to CLAUDE.md")
-    else:
-        claude_md.write_text(wrapped_snippet)
-        actions.append("Created CLAUDE.md with planager snippet")
+    # 3. Append snippets to instruction files
+    for filename, template_name in INSTRUCTION_FILES.items():
+        actions.append(_install_snippet(target, filename, template_name, template_dir))
 
     return actions
 
@@ -102,10 +112,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Initialized planager in {target}\n")
         for action in actions:
             print(f"  {action}")
-        print("\nDone. In Claude Code, try:")
-        print("  /plan <description>   — create a feature plan")
-        print("  /plan                 — resume an in-progress plan")
-        print("  /plan-status          — see progress across all plans")
+        print("\nDone. Your coding agent will now automatically use plans.")
+        print("  Claude Code:  /plan <description>  or  /plan-status")
+        print("  Any agent:    ask it to create a plan for your feature")
         return 0
 
     return 1
