@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  
+  
+  <path d="M30,10 Q30,30 10,30 Q30,30 30,50 Q30,30 50,30 Q30,30 30,10Z" fill="none" stroke="#7DC9B8" stroke-width="1.2"></path>
+  <path d="M90,10 Q90,30 70,30 Q90,30 90,50 Q90,30 110,30 Q90,30 90,10Z" fill="none" stroke="#7DC9B8" stroke-width="1.2"></path>
+  
+  <path d="M30,70 Q30,90 10,90 Q30,90 30,110 Q30,90 50,90 Q30,90 30,70Z" fill="none" stroke="#7DC9B8" stroke-width="1.2"></path>
+  <path d="M90,70 Q90,90 70,90 Q90,90 90,110 Q90,90 110,90 Q90,90 90,70Z" fill="none" stroke="#7DC9B8" stroke-width="1.2"></path>
+  
+  <path d="M60,40 Q80,60 60,80 Q40,60 60,40Z" fill="none" stroke="#7DC9B8" stroke-width="1.2"></path>
+  
+  <circle cx="30" cy="30" r="3" fill="none" stroke="#7DC9B8" stroke-width="1"></circle>
+  <circle cx="90" cy="30" r="3" fill="none" stroke="#7DC9B8" stroke-width="1"></circle>
+  <circle cx="30" cy="90" r="3" fill="none" stroke="#7DC9B8" stroke-width="1"></circle>
+  <circle cx="90" cy="90" r="3" fill="none" stroke="#7DC9B8" stroke-width="1"></circle>
+</svg>
