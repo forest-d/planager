@@ -8,7 +8,7 @@ sessions.
 
 ## Prerequisites
 
-planager uses [uv](https://docs.astral.sh/uv/) to run. If you don't have it:
+planager uses [uv](https://docs.astral.sh/uv/) for installation. If you don't have it:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
