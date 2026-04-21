@@ -2,9 +2,8 @@
 
 Feature plans for LLM-assisted development.
 
-One command sets up your project so coding agents (Claude Code, Codex, etc.)
-automatically create, follow, and maintain structured feature plans across
-sessions.
+One command sets up your project so coding agents automatically create, follow,
+and maintain structured feature plans across sessions.
 
 ## Prerequisites
 
@@ -18,23 +17,40 @@ See the [uv installation docs](https://docs.astral.sh/uv/getting-started/install
 
 ## Install
 
+Choose your agent and run the matching init command:
+
 ```bash
 cd your-project
-uvx planager init
+
+# Claude Code
+uvx planager init claude
+
+# pi.dev
+uvx planager init pi
+
+# OpenAI Codex
+uvx planager init codex
 ```
 
-That's it. No runtime dependencies, no background processes. The command copies
-a few template files into your project and you're done.
+You can run multiple targets in the same project — each one only creates the
+files its agent needs.
+
+That's it. No runtime dependencies, no background processes.
 
 ## What it does
 
 After `planager init`, your project gets:
 
 - **`.plans/`** — directory where feature plans live (markdown files).
-- **`.claude/skills/planager/`** — a `/planager` slash command for creating and resuming plans.
-- **`.claude/skills/planager-status/`** — a `/planager-status` slash command for checking progress.
-- **CLAUDE.md snippet** — instructions that make the agent automatically discover
+- **Agent-specific skill directory** — slash commands for creating and checking plans.
+- **Instruction file** — instructions that make the agent automatically discover
   and follow plans without you having to ask.
+
+| Target | Skills directory | Instruction file | Slash commands |
+|--------|-----------------|-----------------|----------------|
+| `claude` | `.claude/skills/` | `CLAUDE.md` | `/planager`, `/planager-status` |
+| `pi` | `.pi/skills/` | `AGENTS.md` | `/skill:planager`, `/skill:planager-status` |
+| `codex` | `.codex/skills/` | `AGENTS.md` | `$planager`, `$planager-status` |
 
 ## How it works
 
@@ -69,7 +85,7 @@ Implement email/password authentication with session management.
 Using bcrypt for hashing. Decided against JWT — sessions are simpler for now.
 ```
 
-The CLAUDE.md snippet teaches the agent to:
+The instruction file teaches the agent to:
 
 1. **Check for in-progress plans** at the start of each session.
 2. **Create plans** before starting non-trivial features.
@@ -80,7 +96,7 @@ No special tools or MCP servers — the agent reads and writes plain markdown fi
 
 ## Slash commands
 
-### `/planager`
+### `/planager` (Claude) / `/skill:planager` (pi) / `$planager` (Codex)
 
 Create a new feature plan or resume an existing one.
 
@@ -88,7 +104,7 @@ Create a new feature plan or resume an existing one.
   drafts a phased plan, asks for approval.
 - Without: `/planager` — lists in-progress plans and offers to resume or create new.
 
-### `/planager-status`
+### `/planager-status` (Claude) / `/skill:planager-status` (pi) / `$planager-status` (Codex)
 
 Show progress across all plans:
 
@@ -102,8 +118,8 @@ api-v2           done         5/5
 
 ## Idempotent
 
-Running `uvx planager init` again is safe — it skips files that already exist
-and won't duplicate the CLAUDE.md snippet.
+Running `uvx planager init <target>` again is safe — it skips files that already
+exist and won't duplicate the instruction file snippet.
 
 ## License
 
