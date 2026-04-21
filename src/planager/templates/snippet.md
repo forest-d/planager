@@ -11,7 +11,7 @@ markdown files in `.plans/` with phased steps and checkboxes.
 Check `.plans/` for any plans with `status: in-progress` or `status: blocked`.
 If any exist, briefly note them to the user (e.g. "There's an in-progress plan
 for <title>"). If the user's request clearly relates to one, read it and resume
-from the first unchecked step. Don't force it — if the user is asking about
+from the first unchecked step. Don't force it - if the user is asking about
 something unrelated, just mention the plan exists and move on.
 
 ### When starting new feature work
@@ -26,7 +26,7 @@ Before writing code for a non-trivial feature, create a plan:
 6. Begin implementation from Phase 1.
 
 Skip planning for trivial tasks (single-file fixes, typos, config changes).
-Use judgment — if the work spans multiple files or sessions, it deserves a plan.
+Use judgment - if the work spans multiple files or sessions, it deserves a plan.
 
 ### While working on a planned feature
 

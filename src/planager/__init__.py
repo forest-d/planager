@@ -1,1 +1,1 @@
-"""planager — Feature plans for LLM-assisted development."""
+"""planager - Feature plans for LLM-assisted development."""

@@ -1,4 +1,4 @@
-# /planager-status — Show status of all feature plans
+# /planager-status - Show status of all feature plans
 
 When the user invokes `/planager-status`, do the following:
 

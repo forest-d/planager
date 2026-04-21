@@ -3,7 +3,7 @@ name: planager
 description: Create or resume a structured feature plan. Use when starting a non-trivial feature or when the user asks to plan work.
 ---
 
-# /planager — Create or resume a feature plan
+# /planager - Create or resume a feature plan
 
 When the user invokes `/skill:planager`, follow this workflow.
 

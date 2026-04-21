@@ -1,4 +1,4 @@
-# /planager — Create or resume a feature plan
+# /planager - Create or resume a feature plan
 
 When the user invokes `/planager`, follow this workflow.
 

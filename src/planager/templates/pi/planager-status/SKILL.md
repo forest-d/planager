@@ -3,7 +3,7 @@ name: planager-status
 description: Show status of all feature plans with progress summary. Use when the user wants to check plan progress.
 ---
 
-# /planager-status — Show status of all feature plans
+# /planager-status - Show status of all feature plans
 
 When the user invokes `/skill:planager-status`, do the following.
 

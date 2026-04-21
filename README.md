@@ -32,7 +32,7 @@ uvx planager init pi
 uvx planager init codex
 ```
 
-You can run multiple targets in the same project — each one only creates the
+You can run multiple targets in the same project - each one only creates the
 files its agent needs.
 
 That's it. No runtime dependencies, no background processes.
@@ -41,9 +41,9 @@ That's it. No runtime dependencies, no background processes.
 
 After `planager init`, your project gets:
 
-- **`.plans/`** — directory where feature plans live (markdown files).
-- **Agent-specific skill directory** — slash commands for creating and checking plans.
-- **Instruction file** — instructions that make the agent automatically discover
+- **`.plans/`** - directory where feature plans live (markdown files).
+- **Agent-specific skill directory** - slash commands for creating and checking plans.
+- **Instruction file** - instructions that make the agent automatically discover
   and follow plans without you having to ask.
 
 | Target | Skills directory | Instruction file | Slash commands |
@@ -82,7 +82,7 @@ Implement email/password authentication with session management.
 
 ## Notes
 
-Using bcrypt for hashing. Decided against JWT — sessions are simpler for now.
+Using bcrypt for hashing. Decided against JWT - sessions are simpler for now.
 ```
 
 The instruction file teaches the agent to:
@@ -92,7 +92,7 @@ The instruction file teaches the agent to:
 3. **Update plans** as work progresses (check off steps, add notes).
 4. **Mark plans done** when a feature is complete.
 
-No special tools or MCP servers — the agent reads and writes plain markdown files.
+No special tools or MCP servers - the agent reads and writes plain markdown files.
 
 ## Slash commands
 
@@ -100,9 +100,9 @@ No special tools or MCP servers — the agent reads and writes plain markdown fi
 
 Create a new feature plan or resume an existing one.
 
-- With a description: `/planager add dark mode support` — explores the codebase,
+- With a description: `/planager add dark mode support` - explores the codebase,
   drafts a phased plan, asks for approval.
-- Without: `/planager` — lists in-progress plans and offers to resume or create new.
+- Without: `/planager` - lists in-progress plans and offers to resume or create new.
 
 ### `/planager-status` (Claude) / `/skill:planager-status` (pi) / `$planager-status` (Codex)
 
@@ -118,7 +118,7 @@ api-v2           done         5/5
 
 ## Idempotent
 
-Running `uvx planager init <target>` again is safe — it skips files that already
+Running `uvx planager init <target>` again is safe - it skips files that already
 exist and won't duplicate the instruction file snippet.
 
 ## License
