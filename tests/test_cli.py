@@ -260,10 +260,11 @@ class TestMain:
         ret = main([])
         assert ret == 1
 
-    def test_no_target_shows_error(self, capsys):
-        with pytest.raises(SystemExit) as exc_info:
-            main(["init"])
-        assert exc_info.value.code != 0
+    def test_no_target_non_tty_returns_error(self, capsys):
+        """Without a tty, omitting target should fail gracefully."""
+        ret = main(["init"])
+        assert ret == 1
+        assert "no target specified" in capsys.readouterr().err
 
     def test_bad_path(self, tmp_path):
         ret = main(["init", "claude", "--path", str(tmp_path / "nonexistent")])

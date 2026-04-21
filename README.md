@@ -17,23 +17,27 @@ See the [uv installation docs](https://docs.astral.sh/uv/getting-started/install
 
 ## Install
 
-Choose your agent and run the matching init command:
-
 ```bash
 cd your-project
-
-# Claude Code
-uvx planager init claude
-
-# pi.dev
-uvx planager init pi
-
-# OpenAI Codex
-uvx planager init codex
+uvx planager init
 ```
 
-You can run multiple targets in the same project - each one only creates the
-files its agent needs.
+You'll see a menu to pick your agent:
+
+```
+  Welcome to planager! Which agent are you using?
+
+    1. Claude Code  -  Anthropic's Claude Code agent
+    2. pi.dev  -  The pi coding agent
+    3. Codex  -  OpenAI's Codex agent
+
+  Select [1-3]:
+```
+
+You can also skip the menu by passing the target directly
+(`uvx planager init claude`, `uvx planager init pi`, `uvx planager init codex`),
+or run multiple targets in the same project - each one only creates the files
+its agent needs.
 
 That's it. No runtime dependencies, no background processes.
 
@@ -118,7 +122,7 @@ api-v2           done         5/5
 
 ## Idempotent
 
-Running `uvx planager init <target>` again is safe - it skips files that already
+Running `uvx planager init` again is safe - it skips files that already
 exist and won't duplicate the instruction file snippet.
 
 ## License

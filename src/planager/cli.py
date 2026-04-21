@@ -13,21 +13,32 @@ SNIPPET_END_MARKER = "<!-- planager:end -->"
 
 TEMPLATES = files("planager.templates")
 
-# Each target: skills directory, instruction file(s)
+# Each target: skills directory, instruction file(s), display info
 TARGETS = {
     "claude": {
         "skills_dir": ".claude/skills",
         "instruction_files": ["CLAUDE.md"],
+        "label": "Claude Code",
+        "description": "Anthropic's Claude Code agent",
+        "commands": "/planager <description>  or  /planager-status",
     },
     "pi": {
         "skills_dir": ".pi/skills",
         "instruction_files": ["AGENTS.md"],
+        "label": "pi.dev",
+        "description": "The pi coding agent",
+        "commands": "/skill:planager <description>  or  /skill:planager-status",
     },
     "codex": {
         "skills_dir": ".codex/skills",
         "instruction_files": ["AGENTS.md"],
+        "label": "Codex",
+        "description": "OpenAI's Codex agent",
+        "commands": "$planager <description>  or  $planager-status",
     },
 }
+
+TARGET_ORDER = ["claude", "pi", "codex"]
 
 
 def get_template_path() -> Path:
@@ -51,6 +62,38 @@ def _install_snippet(target: Path, filename: str, template_dir: Path) -> str:
 
     dest.write_text(wrapped_snippet)
     return f"Created {filename} with planager snippet"
+
+
+def _prompt_target() -> str | None:
+    """Show an interactive target picker. Returns the target key or None on failure."""
+    if not sys.stdin.isatty():
+        print("Error: no target specified. Usage: planager init <target>", file=sys.stderr)
+        return None
+
+    print("\n  Welcome to planager! Which agent are you using?\n")
+    for i, key in enumerate(TARGET_ORDER, 1):
+        cfg = TARGETS[key]
+        print(f"    {i}. {cfg['label']}")
+    print()
+
+    while True:
+        try:
+            choice = input("  Select [1-3]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return None
+
+        if not choice:
+            continue
+
+        if choice in (str(i) for i in range(1, len(TARGET_ORDER) + 1)):
+            return TARGET_ORDER[int(choice) - 1]
+
+        # Also accept the target name directly
+        if choice in TARGETS:
+            return choice
+
+        print("  Invalid choice. Enter a number 1-3.")
 
 
 def init_project(target_dir: Path, target_name: str) -> list[str]:
@@ -106,8 +149,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     init_parser.add_argument(
         "target",
+        nargs="?",
         choices=sorted(TARGETS.keys()),
-        help="Agent to set up: claude, pi, or codex.",
+        help="Agent to set up: claude, pi, or codex. Omit to choose interactively.",
     )
     init_parser.add_argument(
         "--path",
@@ -123,22 +167,23 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.command == "init":
+        target_name = args.target
+        if target_name is None:
+            target_name = _prompt_target()
+            if target_name is None:
+                return 1
+
         target_dir = args.path.resolve()
         if not target_dir.is_dir():
             print(f"Error: {target_dir} is not a directory.", file=sys.stderr)
             return 1
 
-        actions = init_project(target_dir, args.target)
-        print(f"Initialized planager for {args.target} in {target_dir}\n")
+        actions = init_project(target_dir, target_name)
+        print(f"\n  Initialized planager for {TARGETS[target_name]['label']} in {target_dir}\n")
         for action in actions:
-            print(f"  {action}")
-        print(f"\nDone. Your {args.target} agent will now automatically use plans.")
-        if args.target == "claude":
-            print("  Slash commands: /planager <description>  or  /planager-status")
-        elif args.target == "pi":
-            print("  Slash commands: /skill:planager <description>  or  /skill:planager-status")
-        elif args.target == "codex":
-            print("  Invoke with: $planager <description>  or  $planager-status")
+            print(f"    {action}")
+        print(f"\n  Done. Your {TARGETS[target_name]['label']} agent will now automatically use plans.")
+        print(f"    Commands: {TARGETS[target_name]['commands']}\n")
         return 0
 
     return 1
