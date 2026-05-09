@@ -433,7 +433,7 @@ pre.code-block {
         <div>
           <div class="step-label">Step 2</div>
           <h3>Plan</h3>
-          <p>Use <code class="inline">/planager</code> to create a phased plan before tackling a feature. Your agent explores the codebase, drafts steps, and saves a markdown file.</p>
+          <p>Use <code class="inline">/planager</code> to create a phased plan before tackling a feature. Your agent explores the codebase, drafts steps, and saves a plan file.</p>
         </div>
       </div>
 
@@ -456,7 +456,7 @@ pre.code-block {
     <dl class="what-you-get">
       <div>
         <dt>.plans/</dt>
-        <dd>Markdown plan files with frontmatter, phases, and checkboxes.</dd>
+        <dd>Plan files (markdown or HTML) with metadata, phases, and checkboxes.</dd>
       </div>
       <div>
         <dt>/planager</dt>
@@ -478,9 +478,9 @@ pre.code-block {
 <section class="demo" id="demo">
   <div class="demo-inner">
     <div class="demo-copy">
-      <div class="section-label">Plain markdown</div>
+      <div class="section-label">Plain files</div>
       <h2>No special tools, just files.</h2>
-      <p>Plans are markdown files checked into your repo. Any agent that can read files can follow them. Works with Claude Code, pi.dev, Codex, or any LLM-based workflow.</p>
+      <p>Plans are plain files (markdown or HTML) checked into your repo. Any agent that can read files can follow them. Works with Claude Code, pi.dev, Codex, or any LLM-based workflow.</p>
       <div class="check-list">
         <div class="check-item">
           <div class="check-icon">
@@ -488,7 +488,7 @@ pre.code-block {
               <polyline points="2 6 5 9 10 3"/>
             </svg>
           </div>
-          <span>Idempotent - re-running init is safe</span>
+          <span>Idempotent - re-running init updates in place</span>
         </div>
         <div class="check-item">
           <div class="check-icon">
@@ -572,8 +572,8 @@ uvx planager init</pre>
     2. pi.dev  —  The pi coding agent
     3. Codex  —  OpenAI's Codex agent
 
-  Select [1-3]:</pre>
-      <p class="note">Idempotent — running it again skips files that already exist. You can init multiple agents in the same project.</p>
+  Select [1-3] (default: 1):</pre>
+      <p class="note">Idempotent — running it again updates files in place. You can init multiple agents in the same project.</p>
     </div>
 
     <div class="docs-section">
@@ -581,7 +581,7 @@ uvx planager init</pre>
       <div class="file-list">
         <div class="file-item">
           <code>.plans/</code>
-          <span>Directory where feature plans live (markdown files).</span>
+          <span>Directory where feature plans live (markdown or HTML files).</span>
         </div>
         <div class="file-item">
           <code>&lt;agent&gt;/skills/planager/</code>
@@ -596,6 +596,14 @@ uvx planager init</pre>
           <span>Auto-injected snippet so your agent discovers plans without prompting.</span>
         </div>
       </div>
+    </div>
+
+    <div class="docs-section">
+      <h3>Plan styles</h3>
+      <p>By default, plans are markdown files. Pass <code class="inline">--style html</code> to use standalone HTML files instead (zero JS dependencies).</p>
+      <pre class="code-block">uvx planager init claude --style html</pre>
+      <p style="margin-top:16px;">HTML plans use <code class="inline">&lt;meta&gt;</code> tags for metadata and <code class="inline">data-status</code> attributes for step tracking. They're viewable directly in a browser with styled checkmarks.</p>
+      <p class="note">To switch an existing project, just re-run init with the new style. The instruction snippet and skill files are updated in place.</p>
     </div>
 
     <div class="docs-section">

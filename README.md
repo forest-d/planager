@@ -31,7 +31,7 @@ You'll see a menu to pick your agent:
     2. pi.dev  -  The pi coding agent
     3. Codex  -  OpenAI's Codex agent
 
-  Select [1-3]:
+  Select [1-3] (default: 1):
 ```
 
 You can also skip the menu by passing the target directly
@@ -45,7 +45,7 @@ That's it. No runtime dependencies, no background processes.
 
 After `planager init`, your project gets:
 
-- **`.plans/`** - directory where feature plans live (markdown files).
+- **`.plans/`** - directory where feature plans live (markdown or HTML files).
 - **Agent-specific skill directory** - slash commands for creating and checking plans.
 - **Instruction file** - instructions that make the agent automatically discover
   and follow plans without you having to ask.
@@ -55,6 +55,21 @@ After `planager init`, your project gets:
 | `claude` | `.claude/skills/` | `CLAUDE.md` | `/planager`, `/planager-status` |
 | `pi` | `.pi/skills/` | `AGENTS.md` | `/skill:planager`, `/skill:planager-status` |
 | `codex` | `.codex/skills/` | `AGENTS.md` | `$planager`, `$planager-status` |
+
+## Plan styles
+
+By default, plans are markdown files. You can also use HTML:
+
+```bash
+uvx planager init claude --style html
+```
+
+HTML plans are standalone files with zero JavaScript dependencies — just HTML and
+CSS. They use `<meta>` tags for metadata and `data-status` attributes for step
+tracking, viewable directly in a browser.
+
+To switch an existing project from markdown to HTML, just re-run init with
+`--style html`. The instruction snippet and skill files will be updated in place.
 
 ## How it works
 
@@ -96,7 +111,7 @@ The instruction file teaches the agent to:
 3. **Update plans** as work progresses (check off steps, add notes).
 4. **Mark plans done** when a feature is complete.
 
-No special tools or MCP servers - the agent reads and writes plain markdown files.
+No special tools or MCP servers - the agent reads and writes plain files.
 
 ## Slash commands
 
@@ -122,8 +137,9 @@ api-v2           done         5/5
 
 ## Idempotent
 
-Running `uvx planager init` again is safe - it skips files that already
-exist and won't duplicate the instruction file snippet.
+Running `uvx planager init` again is safe. It updates skill files and the
+instruction snippet in place without duplicating anything. Re-initializing
+with a different `--style` cleanly replaces the previous configuration.
 
 ## License
 

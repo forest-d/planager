@@ -1,11 +1,8 @@
 """Tests for planager init command."""
 
-import textwrap
-
 import pytest
 
-from planager.cli import SNIPPET_MARKER, TARGETS, init_project, main
-
+from planager.cli import SNIPPET_MARKER, _prompt_target, init_project, main
 
 # ---------------------------------------------------------------------------
 # Claude target
@@ -57,7 +54,8 @@ class TestInitClaude:
         actions1 = init_project(tmp_path, "claude")
         actions2 = init_project(tmp_path, "claude")
         assert all("Created" in a for a in actions1)
-        assert all("skipped" in a for a in actions2)
+        # Second run: .plans/ skipped, skills updated, snippet updated
+        assert not any("Created" in a for a in actions2)
         content = (tmp_path / "CLAUDE.md").read_text()
         assert content.count(SNIPPET_MARKER) == 1
 
@@ -231,6 +229,119 @@ class TestAdditivity:
 
 
 # ---------------------------------------------------------------------------
+# Migration / re-init
+# ---------------------------------------------------------------------------
+
+
+class TestMigration:
+    def test_reinit_replaces_snippet(self, tmp_path):
+        """Re-running init replaces the snippet block, not duplicates it."""
+        init_project(tmp_path, "claude")
+        content_before = (tmp_path / "CLAUDE.md").read_text()
+        assert SNIPPET_MARKER in content_before
+
+        init_project(tmp_path, "claude")
+        content_after = (tmp_path / "CLAUDE.md").read_text()
+        assert content_after.count(SNIPPET_MARKER) == 1
+        assert "Feature Plans" in content_after
+
+    def test_reinit_preserves_surrounding_content(self, tmp_path):
+        """User content outside the snippet block is preserved on re-init."""
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text("# My Project\n\nKeep this.\n")
+        init_project(tmp_path, "claude")
+        init_project(tmp_path, "claude")
+        content = claude_md.read_text()
+        assert content.startswith("# My Project")
+        assert "Keep this." in content
+        assert content.count(SNIPPET_MARKER) == 1
+
+    def test_reinit_overwrites_skill_files(self, tmp_path):
+        """Skill files are overwritten on re-init."""
+        init_project(tmp_path, "claude")
+        skill = tmp_path / ".claude" / "skills" / "planager" / "SKILL.md"
+        skill.write_text("corrupted")
+        actions = init_project(tmp_path, "claude")
+        assert any("Updated" in a and "planager/SKILL.md" in a for a in actions)
+        assert skill.read_text() != "corrupted"
+
+    def test_reinit_markdown_to_html(self, tmp_path):
+        """Re-init with --style html replaces markdown snippet with HTML version."""
+        init_project(tmp_path, "claude")
+        content_md = (tmp_path / "CLAUDE.md").read_text()
+        assert "<feature-slug>.md" in content_md
+
+        init_project(tmp_path, "claude", style="html")
+        content_html = (tmp_path / "CLAUDE.md").read_text()
+        assert content_html.count(SNIPPET_MARKER) == 1
+        assert "<feature-slug>.html" in content_html
+        assert "<feature-slug>.md" not in content_html
+
+
+# ---------------------------------------------------------------------------
+# HTML style
+# ---------------------------------------------------------------------------
+
+
+class TestInitHtmlStyle:
+    def test_snippet_references_html_files(self, tmp_path):
+        init_project(tmp_path, "claude", style="html")
+        content = (tmp_path / "CLAUDE.md").read_text()
+        assert "HTML files" in content
+        assert "<feature-slug>.html" in content
+        assert "markdown files" not in content
+        assert "<feature-slug>.md" not in content
+
+    def test_snippet_has_html_plan_example(self, tmp_path):
+        init_project(tmp_path, "claude", style="html")
+        content = (tmp_path / "CLAUDE.md").read_text()
+        assert "<!DOCTYPE html>" in content
+        assert 'data-status="pending"' in content
+        assert 'meta name="status"' in content
+
+    def test_skill_references_html_extension(self, tmp_path):
+        init_project(tmp_path, "claude", style="html")
+        skill = tmp_path / ".claude" / "skills" / "planager" / "SKILL.md"
+        content = skill.read_text()
+        assert "<slug>.html" in content
+        assert "<slug>.md" not in content
+
+    def test_status_skill_references_html_glob(self, tmp_path):
+        init_project(tmp_path, "claude", style="html")
+        skill = tmp_path / ".claude" / "skills" / "planager-status" / "SKILL.md"
+        content = skill.read_text()
+        assert "*.html" in content
+        assert "*.md" not in content
+
+    def test_markdown_style_unchanged(self, tmp_path):
+        """Explicit --style markdown produces same output as default."""
+        init_project(tmp_path / "default", "claude")
+        init_project(tmp_path / "explicit", "claude", style="markdown")
+        for rel in (
+            "CLAUDE.md",
+            ".claude/skills/planager/SKILL.md",
+            ".claude/skills/planager-status/SKILL.md",
+        ):
+            default = (tmp_path / "default" / rel).read_text()
+            explicit = (tmp_path / "explicit" / rel).read_text()
+            assert default == explicit
+
+    def test_html_style_via_cli(self, tmp_path):
+        ret = main(["init", "claude", "--style", "html", "--path", str(tmp_path)])
+        assert ret == 0
+        content = (tmp_path / "CLAUDE.md").read_text()
+        assert "HTML files" in content
+
+    def test_pi_html_style(self, tmp_path):
+        init_project(tmp_path, "pi", style="html")
+        skill = tmp_path / ".pi" / "skills" / "planager" / "SKILL.md"
+        content = skill.read_text()
+        assert "<slug>.html" in content
+        snippet = (tmp_path / "AGENTS.md").read_text()
+        assert "HTML files" in snippet
+
+
+# ---------------------------------------------------------------------------
 # CLI main()
 # ---------------------------------------------------------------------------
 
@@ -274,3 +385,8 @@ class TestMain:
         with pytest.raises(SystemExit) as exc_info:
             main(["init", "invalid", "--path", str(tmp_path)])
         assert exc_info.value.code != 0
+
+    def test_prompt_defaults_to_claude(self, monkeypatch):
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr("builtins.input", lambda _: "")
+        assert _prompt_target() == "claude"

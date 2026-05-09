@@ -43,6 +43,7 @@ Use judgment - if the work spans multiple files or sessions, it deserves a plan.
 - Write a brief summary in `## Notes` of what was built.
 - Check off all remaining steps.
 
+<!-- planager:format-start -->
 ## Plan format
 
 ```markdown
@@ -73,3 +74,4 @@ Brief description of this phase.
 
 Running log of decisions, blockers, things tried.
 ```
+<!-- planager:format-end -->
