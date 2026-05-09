@@ -573,6 +573,24 @@ uvx planager init</pre>
     3. Codex  —  OpenAI's Codex agent
 
   Select [1-3] (default: 1):</pre>
+      <p style="margin-top:16px; font-size:14px; color:var(--muted);">Full usage:</p>
+      <pre class="code-block">uvx planager init [target] [--path DIR] [--style markdown|html]</pre>
+      <table style="width:100%; margin-top:12px; font-size:13px; border-collapse:collapse;">
+        <tbody>
+          <tr style="border-bottom:1px solid var(--rule);">
+            <td style="padding:8px 12px;"><code class="inline">target</code></td>
+            <td style="padding:8px 12px; color:var(--muted);">Agent to set up: <code class="inline">claude</code>, <code class="inline">pi</code>, or <code class="inline">codex</code>. Omit to choose interactively.</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--rule);">
+            <td style="padding:8px 12px;"><code class="inline">--path</code></td>
+            <td style="padding:8px 12px; color:var(--muted);">Project root directory (default: current directory).</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;"><code class="inline">--style</code></td>
+            <td style="padding:8px 12px; color:var(--muted);">Plan file format: <code class="inline">markdown</code> (default) or <code class="inline">html</code>.</td>
+          </tr>
+        </tbody>
+      </table>
       <p class="note">Idempotent — running it again updates files in place. You can init multiple agents in the same project.</p>
     </div>
 

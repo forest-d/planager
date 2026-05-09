@@ -39,6 +39,18 @@ You can also skip the menu by passing the target directly
 or run multiple targets in the same project - each one only creates the files
 its agent needs.
 
+Options:
+
+```
+uvx planager init [target] [--path DIR] [--style markdown|html]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `target` | *(interactive)* | Agent to set up: `claude`, `pi`, or `codex` |
+| `--path` | `.` | Project root directory |
+| `--style` | `markdown` | Plan file format: `markdown` or `html` |
+
 That's it. No runtime dependencies, no background processes.
 
 ## What it does
