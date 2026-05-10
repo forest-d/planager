@@ -147,6 +147,20 @@ dark-mode        planning     Phase 1: 0/4
 api-v2           done         5/5
 ```
 
+## Contributing
+
+This project uses [just](https://github.com/casey/just) for dev workflows.
+Run `just` to see available recipes:
+
+```
+just ruff       # lint and format
+just test       # run tests
+just check      # lint, format, then test
+just build      # clean dist/ and build
+just publish    # clean, build, and publish
+just docs       # open docs in the browser
+```
+
 ## Idempotent
 
 Running `uvx planager init` again is safe. It updates skill files and the
