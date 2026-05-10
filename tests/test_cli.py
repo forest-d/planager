@@ -1,7 +1,6 @@
 """Tests for planager init command."""
 
 import pytest
-
 from planager.cli import SNIPPET_MARKER, _prompt_target, init_project, main
 
 # ---------------------------------------------------------------------------
