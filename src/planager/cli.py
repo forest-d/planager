@@ -131,7 +131,10 @@ def _render_template(content: str, style: str) -> str:
 
 
 def _install_snippet(
-    target: Path, filename: str, template_dir: Path, style: str = "markdown",
+    target: Path,
+    filename: str,
+    template_dir: Path,
+    style: str = "markdown",
 ) -> str:
     """Append a planager snippet to an instruction file. Returns action description."""
     dest = target / filename
@@ -192,6 +195,58 @@ def _prompt_target() -> str | None:
         print("  Invalid choice. Enter a number 1-3.")
 
 
+def _detect_installed_targets(target_dir: Path) -> list[str]:
+    """Return the list of targets that appear to be installed in *target_dir*."""
+    installed = []
+    for name in TARGET_ORDER:
+        skill_file = target_dir / TARGETS[name]["skills_dir"] / "planager" / "SKILL.md"
+        if skill_file.exists():
+            installed.append(name)
+    return installed
+
+
+def _detect_style(target_dir: Path, installed: list[str]) -> str:
+    """Detect the current plan style (markdown or html) from existing snippet content."""
+    for name in installed:
+        for filename in TARGETS[name]["instruction_files"]:
+            f = target_dir / filename
+            if not f.exists():
+                continue
+            content = f.read_text()
+            if SNIPPET_MARKER not in content:
+                continue
+            start = content.index(SNIPPET_MARKER)
+            end = (
+                content.index(SNIPPET_END_MARKER)
+                if SNIPPET_END_MARKER in content
+                else len(content)
+            )
+            snippet = content[start:end]
+            if "HTML files" in snippet or "<feature-slug>.html" in snippet:
+                return "html"
+            return "markdown"
+    return "markdown"
+
+
+def update_project(target_dir: Path, style: str | None = None) -> tuple[list[str], list[str]]:
+    """Re-install planager files for whichever targets are already set up in *target_dir*.
+
+    Returns ``(installed_targets, actions)``. If no targets are installed, both
+    lists are empty.
+    """
+    installed = _detect_installed_targets(target_dir)
+    if not installed:
+        return [], []
+
+    if style is None:
+        style = _detect_style(target_dir, installed)
+
+    actions: list[str] = []
+    for name in installed:
+        actions.extend(init_project(target_dir, name, style))
+    return installed, actions
+
+
 def init_project(target_dir: Path, target_name: str, style: str = "markdown") -> list[str]:
     """Install planager files into *target_dir* project directory for *target_name*.
 
@@ -204,13 +259,18 @@ def init_project(target_dir: Path, target_name: str, style: str = "markdown") ->
     template_dir = get_template_path()
     config = TARGETS[target_name]
 
-    # 1. Create .plans/ directory
+    # 1. Create .plans/ and .plans/done/ directories
     plans_dir = target_dir / ".plans"
     if not plans_dir.exists():
         plans_dir.mkdir(parents=True)
         actions.append("Created .plans/")
     else:
         actions.append(".plans/ already exists, skipped")
+
+    done_dir = plans_dir / "done"
+    if not done_dir.exists():
+        done_dir.mkdir(parents=True)
+        actions.append("Created .plans/done/")
 
     # 2. Copy skill files for this target
     skills_dir = target_dir / config["skills_dir"]
@@ -262,6 +322,23 @@ def main(argv: list[str] | None = None) -> int:
         help="Plan file format: markdown (default) or html.",
     )
 
+    update_parser = sub.add_parser(
+        "update",
+        help="Update an existing planager setup to the latest skill files.",
+    )
+    update_parser.add_argument(
+        "--path",
+        type=Path,
+        default=Path.cwd(),
+        help="Project root directory (default: current directory).",
+    )
+    update_parser.add_argument(
+        "--style",
+        choices=["markdown", "html"],
+        default=None,
+        help="Force a plan file format. Defaults to auto-detect from existing setup.",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -284,8 +361,32 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n  Initialized planager for {TARGETS[target_name]['label']} in {target_dir}\n")
         for action in actions:
             print(f"    {action}")
-        print(f"\n  Done. Your {TARGETS[target_name]['label']} agent will now automatically use plans.")
+        print(
+            f"\n  Done. Your {TARGETS[target_name]['label']} agent will "
+            f"now automatically use plans."
+        )
         print(f"    Commands: {TARGETS[target_name]['commands']}\n")
+        return 0
+
+    if args.command == "update":
+        target_dir = args.path.resolve()
+        if not target_dir.is_dir():
+            print(f"Error: {target_dir} is not a directory.", file=sys.stderr)
+            return 1
+
+        installed, actions = update_project(target_dir, args.style)
+        if not installed:
+            print(
+                "No planager setup detected in this project. Run `planager init` first.",
+                file=sys.stderr,
+            )
+            return 1
+
+        labels = ", ".join(TARGETS[name]["label"] for name in installed)
+        print(f"\n  Updated planager for {labels} in {target_dir}\n")
+        for action in actions:
+            print(f"    {action}")
+        print("\n  Done.\n")
         return 0
 
     return 1

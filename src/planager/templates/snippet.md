@@ -8,11 +8,12 @@ markdown files in `.plans/` with phased steps and checkboxes.
 
 ### On session start
 
-Check `.plans/` for any plans with `status: in-progress` or `status: blocked`.
-If any exist, briefly note them to the user (e.g. "There's an in-progress plan
-for <title>"). If the user's request clearly relates to one, read it and resume
-from the first unchecked step. Don't force it - if the user is asking about
-something unrelated, just mention the plan exists and move on.
+Check `.plans/` (non-recursive — ignore `.plans/done/`) for any plans with
+`status: in-progress` or `status: blocked`. If any exist, briefly note them to
+the user (e.g. "There's an in-progress plan for <title>"). If the user's
+request clearly relates to one, read it and resume from the first unchecked
+step. Don't force it - if the user is asking about something unrelated, just
+mention the plan exists and move on.
 
 ### When starting new feature work
 
@@ -42,6 +43,9 @@ Use judgment - if the work spans multiple files or sessions, it deserves a plan.
 - Set `status: done` in frontmatter.
 - Write a brief summary in `## Notes` of what was built.
 - Check off all remaining steps.
+- Offer to archive the plan by moving it to `.plans/done/`. Create the directory
+  if it doesn't exist. Archived plans are excluded from session-start checks and
+  from `/planager-status`.
 
 <!-- planager:format-start -->
 ## Plan format

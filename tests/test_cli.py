@@ -1,7 +1,16 @@
 """Tests for planager init command."""
 
 import pytest
-from planager.cli import SNIPPET_MARKER, _prompt_target, init_project, main
+
+from planager.cli import (
+    SNIPPET_MARKER,
+    _detect_installed_targets,
+    _detect_style,
+    _prompt_target,
+    init_project,
+    main,
+    update_project,
+)
 
 # ---------------------------------------------------------------------------
 # Claude target
@@ -60,8 +69,9 @@ class TestInitClaude:
 
     def test_returns_actions(self, tmp_path):
         actions = init_project(tmp_path, "claude")
-        assert len(actions) == 4
-        assert any(".plans/" in a for a in actions)
+        assert len(actions) == 5
+        assert any(a == "Created .plans/" for a in actions)
+        assert any(a == "Created .plans/done/" for a in actions)
         assert any("planager/SKILL.md" in a for a in actions)
         assert any("planager-status/SKILL.md" in a for a in actions)
         assert any("CLAUDE.md" in a for a in actions)
@@ -131,8 +141,9 @@ class TestInitPi:
 
     def test_returns_actions(self, tmp_path):
         actions = init_project(tmp_path, "pi")
-        assert len(actions) == 4
-        assert any(".plans/" in a for a in actions)
+        assert len(actions) == 5
+        assert any(a == "Created .plans/" for a in actions)
+        assert any(a == "Created .plans/done/" for a in actions)
         assert any("planager/SKILL.md" in a for a in actions)
         assert any("planager-status/SKILL.md" in a for a in actions)
         assert any("AGENTS.md" in a for a in actions)
@@ -183,7 +194,7 @@ class TestInitCodex:
 
     def test_returns_actions(self, tmp_path):
         actions = init_project(tmp_path, "codex")
-        assert len(actions) == 4
+        assert len(actions) == 5
 
 
 # ---------------------------------------------------------------------------
@@ -389,3 +400,160 @@ class TestMain:
         monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
         monkeypatch.setattr("builtins.input", lambda _: "")
         assert _prompt_target() == "claude"
+
+
+# ---------------------------------------------------------------------------
+# .plans/done/ archive directory
+# ---------------------------------------------------------------------------
+
+
+class TestDoneArchiveDir:
+    def test_init_creates_done_dir(self, tmp_path):
+        init_project(tmp_path, "claude")
+        assert (tmp_path / ".plans" / "done").is_dir()
+
+    def test_init_idempotent_for_done_dir(self, tmp_path):
+        init_project(tmp_path, "claude")
+        actions = init_project(tmp_path, "claude")
+        # Second run: no "Created" actions, including for done/
+        assert not any("Created" in a for a in actions)
+        assert (tmp_path / ".plans" / "done").is_dir()
+
+    def test_status_skill_mentions_done_exclusion(self, tmp_path):
+        init_project(tmp_path, "claude")
+        skill = (tmp_path / ".claude" / "skills" / "planager-status" / "SKILL.md").read_text()
+        assert ".plans/done/" in skill
+
+    def test_planager_skill_mentions_archive(self, tmp_path):
+        init_project(tmp_path, "claude")
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert ".plans/done/" in skill
+
+    def test_snippet_mentions_done(self, tmp_path):
+        init_project(tmp_path, "claude")
+        snippet = (tmp_path / "CLAUDE.md").read_text()
+        assert ".plans/done/" in snippet
+
+
+# ---------------------------------------------------------------------------
+# Target / style detection
+# ---------------------------------------------------------------------------
+
+
+class TestDetection:
+    def test_detect_no_installed_targets(self, tmp_path):
+        assert _detect_installed_targets(tmp_path) == []
+
+    def test_detect_claude_installed(self, tmp_path):
+        init_project(tmp_path, "claude")
+        assert _detect_installed_targets(tmp_path) == ["claude"]
+
+    def test_detect_multiple_targets(self, tmp_path):
+        init_project(tmp_path, "claude")
+        init_project(tmp_path, "pi")
+        installed = _detect_installed_targets(tmp_path)
+        assert set(installed) == {"claude", "pi"}
+
+    def test_detect_style_defaults_markdown(self, tmp_path):
+        init_project(tmp_path, "claude")
+        assert _detect_style(tmp_path, ["claude"]) == "markdown"
+
+    def test_detect_style_html(self, tmp_path):
+        init_project(tmp_path, "claude", style="html")
+        assert _detect_style(tmp_path, ["claude"]) == "html"
+
+    def test_detect_style_no_setup_defaults_markdown(self, tmp_path):
+        assert _detect_style(tmp_path, []) == "markdown"
+
+
+# ---------------------------------------------------------------------------
+# update command
+# ---------------------------------------------------------------------------
+
+
+class TestUpdate:
+    def test_update_no_setup_returns_empty(self, tmp_path):
+        installed, actions = update_project(tmp_path)
+        assert installed == []
+        assert actions == []
+
+    def test_update_refreshes_claude_skill(self, tmp_path):
+        init_project(tmp_path, "claude")
+        skill = tmp_path / ".claude" / "skills" / "planager" / "SKILL.md"
+        skill.write_text("stale content")
+
+        installed, actions = update_project(tmp_path)
+        assert installed == ["claude"]
+        assert "stale content" not in skill.read_text()
+        assert "/planager" in skill.read_text()
+
+    def test_update_creates_missing_done_dir(self, tmp_path):
+        init_project(tmp_path, "claude")
+        done = tmp_path / ".plans" / "done"
+        done.rmdir()
+        assert not done.exists()
+
+        update_project(tmp_path)
+        assert done.is_dir()
+
+    def test_update_preserves_markdown_style(self, tmp_path):
+        init_project(tmp_path, "claude", style="markdown")
+        update_project(tmp_path)
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "<slug>.md" in skill
+        assert "<slug>.html" not in skill
+
+    def test_update_preserves_html_style(self, tmp_path):
+        init_project(tmp_path, "claude", style="html")
+        update_project(tmp_path)
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "<slug>.html" in skill
+        assert "<slug>.md" not in skill
+
+    def test_update_can_force_style_switch(self, tmp_path):
+        init_project(tmp_path, "claude", style="markdown")
+        installed, _ = update_project(tmp_path, style="html")
+        assert installed == ["claude"]
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "<slug>.html" in skill
+
+    def test_update_handles_multiple_targets(self, tmp_path):
+        init_project(tmp_path, "claude")
+        init_project(tmp_path, "pi")
+        for path in (
+            tmp_path / ".claude" / "skills" / "planager" / "SKILL.md",
+            tmp_path / ".pi" / "skills" / "planager" / "SKILL.md",
+        ):
+            path.write_text("stale")
+
+        installed, _ = update_project(tmp_path)
+        assert set(installed) == {"claude", "pi"}
+        for path in (
+            tmp_path / ".claude" / "skills" / "planager" / "SKILL.md",
+            tmp_path / ".pi" / "skills" / "planager" / "SKILL.md",
+        ):
+            assert path.read_text() != "stale"
+
+    def test_update_main_command(self, tmp_path):
+        init_project(tmp_path, "claude")
+        skill = tmp_path / ".claude" / "skills" / "planager" / "SKILL.md"
+        skill.write_text("stale")
+        ret = main(["update", "--path", str(tmp_path)])
+        assert ret == 0
+        assert skill.read_text() != "stale"
+
+    def test_update_main_no_setup_errors(self, tmp_path, capsys):
+        ret = main(["update", "--path", str(tmp_path)])
+        assert ret == 1
+        assert "No planager setup" in capsys.readouterr().err
+
+    def test_update_main_bad_path(self, tmp_path):
+        ret = main(["update", "--path", str(tmp_path / "nonexistent")])
+        assert ret == 1
+
+    def test_update_main_force_style(self, tmp_path):
+        init_project(tmp_path, "claude", style="markdown")
+        ret = main(["update", "--path", str(tmp_path), "--style", "html"])
+        assert ret == 0
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "<slug>.html" in skill

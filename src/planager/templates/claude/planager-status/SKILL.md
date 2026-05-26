@@ -2,7 +2,8 @@
 
 When the user invokes `/planager-status`, do the following:
 
-1. Glob `.plans/*.md` to find all plan files.
+1. Glob `.plans/*.md` (non-recursive) to find all plan files. Do not include
+   plans in `.plans/done/` — those are archived and excluded from status.
 2. If no plans exist, say so and exit.
 3. For each plan file, read it and extract:
    - `feature` and `title` from frontmatter

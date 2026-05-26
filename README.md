@@ -58,6 +58,8 @@ That's it. No runtime dependencies, no background processes.
 After `planager init`, your project gets:
 
 - **`.plans/`** - directory where feature plans live (markdown or HTML files).
+- **`.plans/done/`** - archive for completed plans. Excluded from
+  `/planager-status` and session-start checks.
 - **Agent-specific skill directory** - slash commands for creating and checking plans.
 - **Instruction file** - instructions that make the agent automatically discover
   and follow plans without you having to ask.
@@ -121,7 +123,8 @@ The instruction file teaches the agent to:
 1. **Check for in-progress plans** at the start of each session.
 2. **Create plans** before starting non-trivial features.
 3. **Update plans** as work progresses (check off steps, add notes).
-4. **Mark plans done** when a feature is complete.
+4. **Mark plans done** when a feature is complete, and offer to archive them to
+   `.plans/done/`.
 
 No special tools or MCP servers - the agent reads and writes plain files.
 
@@ -160,6 +163,19 @@ just build      # clean dist/ and build
 just publish    # clean, build, and publish
 just docs       # open docs in the browser
 ```
+
+## Updating
+
+When new planager versions ship updated skill files or instruction snippets,
+upgrade an existing project with:
+
+```bash
+uvx planager update
+```
+
+This detects which agents you've already set up (and the `--style` you chose),
+and refreshes their skill files and instruction snippets to the latest version.
+Pass `--style markdown|html` to force a format switch at the same time.
 
 ## Idempotent
 

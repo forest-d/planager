@@ -33,3 +33,15 @@ When the user invokes `/planager`, follow this workflow.
 3. Begin work from the first unchecked step.
 4. Follow the standard plan update behavior (check steps, add notes, update
    frontmatter) as you work.
+
+## On completion
+
+When the user (or you, on their behalf) marks a plan complete:
+
+1. Set `status: done` in frontmatter.
+2. Write a brief summary in `## Notes` of what was built.
+3. Check off any remaining steps that were finished.
+4. Ask the user if they want to archive the plan by moving it to
+   `.plans/done/<slug>.md`. Default to yes. Create `.plans/done/` if it doesn't
+   exist. Archived plans are excluded from `/planager-status` and session-start
+   checks.
