@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 from importlib.resources import files
 from pathlib import Path
@@ -13,6 +14,36 @@ FORMAT_START_MARKER = "<!-- planager:format-start -->"
 FORMAT_END_MARKER = "<!-- planager:format-end -->"
 
 TEMPLATES = files("planager.templates")
+
+SQLITE_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS plans (
+    feature TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'planning',
+    context TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created TEXT NOT NULL,
+    updated TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS phases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_feature TEXT NOT NULL REFERENCES plans(feature) ON DELETE CASCADE,
+    phase_num INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    UNIQUE(plan_feature, phase_num)
+);
+
+CREATE TABLE IF NOT EXISTS steps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phase_id INTEGER NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
+    step_order INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+);
+"""
 
 HTML_PLAN_EXAMPLE = """\
 ## Plan format
@@ -138,8 +169,11 @@ def _install_snippet(
 ) -> str:
     """Append a planager snippet to an instruction file. Returns action description."""
     dest = target / filename
-    snippet = (template_dir / "snippet.md").read_text()
-    snippet = _render_template(snippet, style)
+    if style == "sqlite":
+        snippet = (template_dir / "snippet.sqlite.md").read_text()
+    else:
+        snippet = (template_dir / "snippet.md").read_text()
+        snippet = _render_template(snippet, style)
     wrapped_snippet = f"{SNIPPET_MARKER}\n{snippet}{SNIPPET_END_MARKER}\n"
 
     if dest.exists():
@@ -224,6 +258,8 @@ def _detect_style(target_dir: Path, installed: list[str]) -> str:
             snippet = content[start:end]
             if "HTML files" in snippet or "<feature-slug>.html" in snippet:
                 return "html"
+            if "plans.db" in snippet:
+                return "sqlite"
             return "markdown"
     return "markdown"
 
@@ -259,7 +295,7 @@ def init_project(target_dir: Path, target_name: str, style: str = "markdown") ->
     template_dir = get_template_path()
     config = TARGETS[target_name]
 
-    # 1. Create .plans/ and .plans/done/ directories
+    # 1. Create .plans/ directory and either plans.db (sqlite) or done/ subdir
     plans_dir = target_dir / ".plans"
     if not plans_dir.exists():
         plans_dir.mkdir(parents=True)
@@ -267,21 +303,37 @@ def init_project(target_dir: Path, target_name: str, style: str = "markdown") ->
     else:
         actions.append(".plans/ already exists, skipped")
 
-    done_dir = plans_dir / "done"
-    if not done_dir.exists():
-        done_dir.mkdir(parents=True)
-        actions.append("Created .plans/done/")
+    if style == "sqlite":
+        db_path = plans_dir / "plans.db"
+        if not db_path.exists():
+            conn = sqlite3.connect(db_path)
+            conn.executescript(SQLITE_SCHEMA)
+            conn.commit()
+            conn.close()
+            actions.append("Created .plans/plans.db")
+        else:
+            actions.append(".plans/plans.db already exists, skipped")
+    else:
+        done_dir = plans_dir / "done"
+        if not done_dir.exists():
+            done_dir.mkdir(parents=True)
+            actions.append("Created .plans/done/")
 
     # 2. Copy skill files for this target
     skills_dir = target_dir / config["skills_dir"]
     for skill_name in ("planager", "planager-status"):
         skill_dest = skills_dir / skill_name / "SKILL.md"
-        skill_src = template_dir / target_name / skill_name / "SKILL.md"
+        if style == "sqlite":
+            skill_src = template_dir / target_name / skill_name / "SKILL.sqlite.md"
+        else:
+            skill_src = template_dir / target_name / skill_name / "SKILL.md"
 
         existed = skill_dest.exists()
         skill_dest.parent.mkdir(parents=True, exist_ok=True)
         skill_content = skill_src.read_text()
-        skill_dest.write_text(_render_template(skill_content, style))
+        if style != "sqlite":
+            skill_content = _render_template(skill_content, style)
+        skill_dest.write_text(skill_content)
         verb = "Updated" if existed else "Created"
         actions.append(f"{verb} {config['skills_dir']}/{skill_name}/SKILL.md")
 
@@ -317,9 +369,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     init_parser.add_argument(
         "--style",
-        choices=["markdown", "html"],
+        choices=["markdown", "html", "sqlite"],
         default="markdown",
-        help="Plan file format: markdown (default) or html.",
+        help="Plan file format: markdown (default), html, or sqlite.",
     )
 
     update_parser = sub.add_parser(
@@ -334,7 +386,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     update_parser.add_argument(
         "--style",
-        choices=["markdown", "html"],
+        choices=["markdown", "html", "sqlite"],
         default=None,
         help="Force a plan file format. Defaults to auto-detect from existing setup.",
     )

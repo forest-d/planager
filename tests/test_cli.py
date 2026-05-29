@@ -1,5 +1,7 @@
 """Tests for planager init command."""
 
+import sqlite3
+
 import pytest
 
 from planager.cli import (
@@ -557,3 +559,170 @@ class TestUpdate:
         assert ret == 0
         skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
         assert "<slug>.html" in skill
+
+
+# ---------------------------------------------------------------------------
+# SQLite style
+# ---------------------------------------------------------------------------
+
+
+class TestInitSqliteStyle:
+    def test_creates_plans_db(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        assert (tmp_path / ".plans" / "plans.db").is_file()
+
+    def test_does_not_create_done_dir(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        assert not (tmp_path / ".plans" / "done").exists()
+
+    def test_db_has_expected_tables(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        conn = sqlite3.connect(tmp_path / ".plans" / "plans.db")
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()}
+        conn.close()
+        assert tables == {"plans", "phases", "steps"}
+
+    def test_db_plans_schema(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        conn = sqlite3.connect(tmp_path / ".plans" / "plans.db")
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(plans)").fetchall()}
+        conn.close()
+        assert {"feature", "title", "status", "context", "notes", "created", "updated", "archived"}.issubset(cols)
+
+    def test_db_phases_schema(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        conn = sqlite3.connect(tmp_path / ".plans" / "plans.db")
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(phases)").fetchall()}
+        conn.close()
+        assert {"id", "plan_feature", "phase_num", "title", "description"}.issubset(cols)
+
+    def test_db_steps_schema(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        conn = sqlite3.connect(tmp_path / ".plans" / "plans.db")
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(steps)").fetchall()}
+        conn.close()
+        assert {"id", "phase_id", "step_order", "description", "status"}.issubset(cols)
+
+    def test_skill_references_plans_db(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "plans.db" in skill
+        assert "sqlite3" in skill
+
+    def test_status_skill_references_plans_db(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        skill = (tmp_path / ".claude" / "skills" / "planager-status" / "SKILL.md").read_text()
+        assert "plans.db" in skill
+        assert "sqlite3" in skill
+
+    def test_skill_has_no_md_file_references(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        for skill_name in ("planager", "planager-status"):
+            skill = (tmp_path / ".claude" / "skills" / skill_name / "SKILL.md").read_text()
+            assert ".plans/*.md" not in skill
+            assert "<slug>.md" not in skill
+
+    def test_snippet_references_plans_db(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        content = (tmp_path / "CLAUDE.md").read_text()
+        assert "plans.db" in content
+        assert "sqlite3" in content
+
+    def test_snippet_has_no_markdown_file_format(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        content = (tmp_path / "CLAUDE.md").read_text()
+        assert "markdown files" not in content
+        assert "<feature-slug>.md" not in content
+        assert "<!DOCTYPE html>" not in content
+
+    def test_returns_actions(self, tmp_path):
+        actions = init_project(tmp_path, "claude", style="sqlite")
+        assert len(actions) == 5
+        assert any(a == "Created .plans/" for a in actions)
+        assert any(a == "Created .plans/plans.db" for a in actions)
+        assert any("planager/SKILL.md" in a for a in actions)
+        assert any("planager-status/SKILL.md" in a for a in actions)
+        assert any("CLAUDE.md" in a for a in actions)
+
+    def test_idempotent(self, tmp_path):
+        actions1 = init_project(tmp_path, "claude", style="sqlite")
+        actions2 = init_project(tmp_path, "claude", style="sqlite")
+        assert all("Created" in a for a in actions1)
+        assert not any("Created" in a for a in actions2)
+        assert (tmp_path / "CLAUDE.md").read_text().count(SNIPPET_MARKER) == 1
+
+    def test_db_idempotent(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        actions = init_project(tmp_path, "claude", style="sqlite")
+        assert any(".plans/plans.db already exists" in a for a in actions)
+        assert (tmp_path / ".plans" / "plans.db").is_file()
+
+    def test_sqlite_style_via_cli(self, tmp_path):
+        ret = main(["init", "claude", "--style", "sqlite", "--path", str(tmp_path)])
+        assert ret == 0
+        assert (tmp_path / ".plans" / "plans.db").is_file()
+
+    def test_pi_sqlite_style(self, tmp_path):
+        init_project(tmp_path, "pi", style="sqlite")
+        skill = (tmp_path / ".pi" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "plans.db" in skill
+        assert "sqlite3" in skill
+        assert skill.startswith("---\n")
+        snippet = (tmp_path / "AGENTS.md").read_text()
+        assert "plans.db" in snippet
+
+    def test_codex_sqlite_style(self, tmp_path):
+        init_project(tmp_path, "codex", style="sqlite")
+        skill = (tmp_path / ".codex" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "plans.db" in skill
+        assert "$planager" in skill
+
+    def test_reinit_markdown_to_sqlite(self, tmp_path):
+        init_project(tmp_path, "claude")
+        content_md = (tmp_path / "CLAUDE.md").read_text()
+        assert "<feature-slug>.md" in content_md
+
+        init_project(tmp_path, "claude", style="sqlite")
+        content_sq = (tmp_path / "CLAUDE.md").read_text()
+        assert content_sq.count(SNIPPET_MARKER) == 1
+        assert "plans.db" in content_sq
+        assert "<feature-slug>.md" not in content_sq
+
+    def test_reinit_sqlite_to_html(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        init_project(tmp_path, "claude", style="html")
+        content = (tmp_path / "CLAUDE.md").read_text()
+        assert content.count(SNIPPET_MARKER) == 1
+        assert "<feature-slug>.html" in content
+        assert "plans.db" not in content
+
+
+# ---------------------------------------------------------------------------
+# SQLite style detection
+# ---------------------------------------------------------------------------
+
+
+class TestDetectSqliteStyle:
+    def test_detect_style_sqlite(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        assert _detect_style(tmp_path, ["claude"]) == "sqlite"
+
+    def test_update_preserves_sqlite_style(self, tmp_path):
+        init_project(tmp_path, "claude", style="sqlite")
+        update_project(tmp_path)
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "plans.db" in skill
+
+    def test_update_can_force_switch_to_sqlite(self, tmp_path):
+        init_project(tmp_path, "claude", style="markdown")
+        installed, _ = update_project(tmp_path, style="sqlite")
+        assert installed == ["claude"]
+        assert (tmp_path / ".plans" / "plans.db").is_file()
+        skill = (tmp_path / ".claude" / "skills" / "planager" / "SKILL.md").read_text()
+        assert "plans.db" in skill
+
+    def test_update_main_force_sqlite(self, tmp_path):
+        init_project(tmp_path, "claude", style="markdown")
+        ret = main(["update", "--path", str(tmp_path), "--style", "sqlite"])
+        assert ret == 0
+        assert (tmp_path / ".plans" / "plans.db").is_file()
