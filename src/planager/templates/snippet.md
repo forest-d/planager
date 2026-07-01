@@ -13,7 +13,9 @@ Check `.plans/` (non-recursive — ignore `.plans/done/`) for any plans with
 the user (e.g. "There's an in-progress plan for <title>"). If the user's
 request clearly relates to one, read it and resume from the first unchecked
 step. Don't force it - if the user is asking about something unrelated, just
-mention the plan exists and move on.
+mention the plan exists and move on. If an in-progress plan looks already
+finished (all steps checked, or the work has clearly shipped), suggest marking
+it done and archiving it.
 
 ### When starting new feature work
 
