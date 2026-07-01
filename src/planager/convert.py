@@ -400,6 +400,47 @@ def save_sqlite(db_path: Path, plans: list[Plan]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Progress
+# ---------------------------------------------------------------------------
+
+
+def plan_progress(plan: Plan) -> tuple[int, int, int | None]:
+    """Return ``(done_steps, total_steps, current_phase_num)``.
+
+    ``current_phase_num`` is the 1-based number of the first phase containing a
+    pending step, or ``None`` when every step is done or there are no steps.
+    """
+    done = total = 0
+    current: int | None = None
+    for num, phase in enumerate(plan.phases, 1):
+        for step in phase.steps:
+            total += 1
+            if step.done:
+                done += 1
+            elif current is None:
+                current = num
+    return done, total, current
+
+
+def collect_plans(plans_dir: Path, include_archived: bool = False) -> list[Plan]:
+    """Load every plan stored in *plans_dir*, regardless of style.
+
+    Reads ``plans.db`` plus any markdown and HTML plan files, so it works for
+    all styles and even for a project caught mid-migration.
+    """
+    plans: list[Plan] = []
+    db_path = plans_dir / "plans.db"
+    if db_path.exists():
+        plans += load_sqlite(db_path)
+    for style in STYLE_EXTENSIONS:
+        file_plans, _, _ = _load_plan_files(plans_dir, style)
+        plans += file_plans
+    if not include_archived:
+        plans = [p for p in plans if not p.archived]
+    return plans
+
+
+# ---------------------------------------------------------------------------
 # Migration
 # ---------------------------------------------------------------------------
 

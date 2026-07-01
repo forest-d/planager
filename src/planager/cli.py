@@ -8,7 +8,7 @@ import sys
 from importlib.resources import files
 from pathlib import Path
 
-from planager.convert import SQLITE_SCHEMA, migrate_plans
+from planager.convert import SQLITE_SCHEMA, collect_plans, migrate_plans, plan_progress
 
 SNIPPET_MARKER = "<!-- planager:start -->"
 SNIPPET_END_MARKER = "<!-- planager:end -->"
@@ -320,6 +320,33 @@ def init_project(target_dir: Path, target_name: str, style: str = "markdown") ->
     return actions
 
 
+_STATUS_ORDER = {"in-progress": 0, "blocked": 1, "planning": 2, "done": 3}
+
+
+def format_status_table(plans) -> str:
+    """Render plans as the aligned Feature/Status/Progress table."""
+    rows = []
+    for plan in sorted(plans, key=lambda p: (_STATUS_ORDER.get(p.status, 4), p.feature)):
+        done, total, current = plan_progress(plan)
+        if total == 0:
+            progress = "no steps"
+        elif current is None:
+            progress = f"{done}/{total}"
+        else:
+            progress = f"Phase {current}: {done}/{total}"
+        status = f"{plan.status} (archived)" if plan.archived else plan.status
+        rows.append((plan.feature, status, progress))
+
+    headers = ("Feature", "Status", "Progress")
+    widths = [max(len(h), *(len(row[i]) for row in rows)) for i, h in enumerate(headers)]
+    lines = [
+        "  ".join(h.ljust(w) for h, w in zip(headers, widths)).rstrip(),
+        "  ".join("─" * w for w in widths),
+    ]
+    lines += ["  ".join(c.ljust(w) for c, w in zip(row, widths)).rstrip() for row in rows]
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="planager",
@@ -368,6 +395,23 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Switch to a different plan format, migrating existing plans."
         " Defaults to auto-detect from existing setup.",
+    )
+
+    status_parser = sub.add_parser(
+        "status",
+        help="Show progress across all feature plans, no agent required.",
+    )
+    status_parser.add_argument(
+        "--path",
+        type=Path,
+        default=Path.cwd(),
+        help="Project root directory (default: current directory).",
+    )
+    status_parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="show_all",
+        help="Include archived plans.",
     )
 
     args = parser.parse_args(argv)
@@ -432,6 +476,24 @@ def main(argv: list[str] | None = None) -> int:
         for action in actions:
             print(f"    {action}")
         print("\n  Done.\n")
+        return 0
+
+    if args.command == "status":
+        plans_dir = args.path.resolve() / ".plans"
+        if not plans_dir.is_dir():
+            print("No .plans/ directory found. Run `planager init` first.", file=sys.stderr)
+            return 1
+
+        plans = collect_plans(plans_dir, include_archived=args.show_all)
+        if not plans:
+            print("No plans found in .plans/.")
+            return 0
+
+        print(format_status_table(plans))
+        for plan in plans:
+            if plan.status == "blocked" and plan.notes:
+                last_note = plan.notes.strip().splitlines()[-1].strip()
+                print(f"\n{plan.feature} is blocked: {last_note}")
         return 0
 
     return 1

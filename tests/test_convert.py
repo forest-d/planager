@@ -1,15 +1,16 @@
 """Tests for plan conversion between markdown, HTML, and SQLite styles."""
 
-
-from planager.cli import init_project, main, update_project
+from planager.cli import format_status_table, init_project, main, update_project
 from planager.convert import (
     Phase,
     Plan,
     Step,
+    collect_plans,
     load_sqlite,
     migrate_plans,
     parse_html,
     parse_markdown,
+    plan_progress,
     render_html,
     render_markdown,
     save_sqlite,
@@ -260,3 +261,139 @@ class TestCliStyleSwitch:
 
         update_project(tmp_path, style="html")
         assert (tmp_path / ".plans" / "notes.txt").exists()
+
+
+# ---------------------------------------------------------------------------
+# planager status
+# ---------------------------------------------------------------------------
+
+
+class TestPlanProgress:
+    def test_counts_and_current_phase(self):
+        assert plan_progress(sample_plan()) == (1, 3, 1)
+
+    def test_all_done(self):
+        plan = sample_plan()
+        for phase in plan.phases:
+            for step in phase.steps:
+                step.done = True
+        assert plan_progress(plan) == (3, 3, None)
+
+    def test_no_steps(self):
+        assert plan_progress(Plan(feature="x", title="X")) == (0, 0, None)
+
+    def test_current_phase_skips_completed_phases(self):
+        plan = sample_plan()
+        for step in plan.phases[0].steps:
+            step.done = True
+        assert plan_progress(plan) == (2, 3, 2)
+
+
+class TestCollectPlans:
+    def test_reads_all_styles_together(self, tmp_path):
+        (tmp_path / "auth.md").write_text(SAMPLE_MD)
+        html_plan = sample_plan()
+        html_plan.feature = "ui"
+        (tmp_path / "ui.html").write_text(render_html(html_plan))
+        db_plan = sample_plan()
+        db_plan.feature = "db"
+        save_sqlite(tmp_path / "plans.db", [db_plan])
+
+        features = {p.feature for p in collect_plans(tmp_path)}
+        assert features == {"auth", "ui", "db"}
+
+    def test_excludes_archived_by_default(self, tmp_path):
+        done = tmp_path / "done"
+        done.mkdir()
+        (done / "old.md").write_text(SAMPLE_MD.replace("feature: auth", "feature: old"))
+        archived = sample_plan()
+        archived.feature = "shipped"
+        archived.archived = True
+        save_sqlite(tmp_path / "plans.db", [archived])
+
+        assert collect_plans(tmp_path) == []
+        features = {p.feature for p in collect_plans(tmp_path, include_archived=True)}
+        assert features == {"old", "shipped"}
+
+
+class TestStatusCommand:
+    def test_table_output(self, tmp_path, capsys):
+        main(["init", "claude", "--path", str(tmp_path)])
+        (tmp_path / ".plans" / "auth.md").write_text(SAMPLE_MD)
+        capsys.readouterr()
+
+        ret = main(["status", "--path", str(tmp_path)])
+        assert ret == 0
+        out = capsys.readouterr().out
+        lines = out.strip().splitlines()
+        assert lines[0].split() == ["Feature", "Status", "Progress"]
+        assert "auth" in lines[2]
+        assert "in-progress" in lines[2]
+        assert "Phase 1: 1/3" in lines[2]
+
+    def test_orders_by_status(self, tmp_path, capsys):
+        main(["init", "claude", "--path", str(tmp_path)])
+        cases = (("zdone", "done"), ("mplan", "planning"), ("awork", "in-progress"))
+        for feature, status in cases:
+            text = SAMPLE_MD.replace("feature: auth", f"feature: {feature}").replace(
+                "status: in-progress", f"status: {status}"
+            )
+            (tmp_path / ".plans" / f"{feature}.md").write_text(text)
+
+        main(["status", "--path", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert out.index("awork") < out.index("mplan") < out.index("zdone")
+
+    def test_sqlite_style(self, tmp_path, capsys):
+        main(["init", "claude", "--style", "sqlite", "--path", str(tmp_path)])
+        save_sqlite(tmp_path / ".plans" / "plans.db", [sample_plan()])
+
+        ret = main(["status", "--path", str(tmp_path)])
+        assert ret == 0
+        assert "auth" in capsys.readouterr().out
+
+    def test_all_flag_includes_archived(self, tmp_path, capsys):
+        main(["init", "claude", "--path", str(tmp_path)])
+        (tmp_path / ".plans" / "done" / "old.md").write_text(
+            SAMPLE_MD.replace("feature: auth", "feature: old")
+        )
+
+        main(["status", "--path", str(tmp_path)])
+        assert "old" not in capsys.readouterr().out
+
+        main(["status", "--all", "--path", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert "old" in out
+        assert "(archived)" in out
+
+    def test_blocked_plan_shows_last_note(self, tmp_path, capsys):
+        main(["init", "claude", "--path", str(tmp_path)])
+        text = SAMPLE_MD.replace("status: in-progress", "status: blocked").replace(
+            "Using bcrypt for hashing.", "Waiting on the auth vendor API key."
+        )
+        (tmp_path / ".plans" / "auth.md").write_text(text)
+
+        main(["status", "--path", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert "auth is blocked: Waiting on the auth vendor API key." in out
+
+    def test_no_plans(self, tmp_path, capsys):
+        main(["init", "claude", "--path", str(tmp_path)])
+        ret = main(["status", "--path", str(tmp_path)])
+        assert ret == 0
+        assert "No plans found" in capsys.readouterr().out
+
+    def test_missing_plans_dir(self, tmp_path, capsys):
+        ret = main(["status", "--path", str(tmp_path)])
+        assert ret == 1
+        assert "No .plans/ directory" in capsys.readouterr().err
+
+    def test_format_status_table_alignment(self):
+        plans = [sample_plan(), Plan(feature="x", title="X", status="planning")]
+        table = format_status_table(plans)
+        lines = table.splitlines()
+        assert set(lines[1]) <= {"─", " "}
+        status_col = lines[0].index("Status")
+        assert lines[2][status_col:].startswith("in-progress")  # auth sorts first
+        assert lines[3][status_col:].startswith("planning")
+        assert "no steps" in table

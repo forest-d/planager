@@ -175,6 +175,21 @@ dark-mode        planning     Phase 1: 0/4
 api-v2           done         5/5
 ```
 
+## Check status from the terminal
+
+You don't need an agent session to see where things stand:
+
+```bash
+uvx planager status
+```
+
+This prints the same progress table directly, reading whatever is in `.plans/`
+(markdown, HTML, or SQLite — it works for every style). Plans are ordered
+in-progress, blocked, planning, done; blocked plans also show their most recent
+note so you can see what they're waiting on. Pass `--all` to include archived
+plans, and `--path DIR` to point at another project. Handy for a quick check
+before starting a session, or from scripts and CI.
+
 ## Contributing
 
 This project uses [just](https://github.com/casey/just) for dev workflows.
