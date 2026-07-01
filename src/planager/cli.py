@@ -8,42 +8,14 @@ import sys
 from importlib.resources import files
 from pathlib import Path
 
+from planager.convert import SQLITE_SCHEMA, migrate_plans
+
 SNIPPET_MARKER = "<!-- planager:start -->"
 SNIPPET_END_MARKER = "<!-- planager:end -->"
 FORMAT_START_MARKER = "<!-- planager:format-start -->"
 FORMAT_END_MARKER = "<!-- planager:format-end -->"
 
 TEMPLATES = files("planager.templates")
-
-SQLITE_SCHEMA = """\
-CREATE TABLE IF NOT EXISTS plans (
-    feature TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'planning',
-    context TEXT NOT NULL DEFAULT '',
-    notes TEXT NOT NULL DEFAULT '',
-    created TEXT NOT NULL,
-    updated TEXT NOT NULL,
-    archived INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS phases (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    plan_feature TEXT NOT NULL REFERENCES plans(feature) ON DELETE CASCADE,
-    phase_num INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    UNIQUE(plan_feature, phase_num)
-);
-
-CREATE TABLE IF NOT EXISTS steps (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    phase_id INTEGER NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
-    step_order INTEGER NOT NULL,
-    description TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending'
-);
-"""
 
 HTML_PLAN_EXAMPLE = """\
 ## Plan format
@@ -267,17 +239,21 @@ def _detect_style(target_dir: Path, installed: list[str]) -> str:
 def update_project(target_dir: Path, style: str | None = None) -> tuple[list[str], list[str]]:
     """Re-install planager files for whichever targets are already set up in *target_dir*.
 
-    Returns ``(installed_targets, actions)``. If no targets are installed, both
-    lists are empty.
+    If *style* differs from the currently installed style, existing plans are
+    migrated to the new format. Returns ``(installed_targets, actions)``. If no
+    targets are installed, both lists are empty.
     """
     installed = _detect_installed_targets(target_dir)
     if not installed:
         return [], []
 
+    current_style = _detect_style(target_dir, installed)
     if style is None:
-        style = _detect_style(target_dir, installed)
+        style = current_style
 
     actions: list[str] = []
+    if style != current_style:
+        actions.extend(migrate_plans(target_dir / ".plans", current_style, style))
     for name in installed:
         actions.extend(init_project(target_dir, name, style))
     return installed, actions
@@ -370,8 +346,10 @@ def main(argv: list[str] | None = None) -> int:
     init_parser.add_argument(
         "--style",
         choices=["markdown", "html", "sqlite"],
-        default="markdown",
-        help="Plan file format: markdown (default), html, or sqlite.",
+        default=None,
+        help="Plan format: markdown, html, or sqlite. Defaults to the style already"
+        " in use if the project is initialized, else markdown. Existing plans are"
+        " migrated when the style changes.",
     )
 
     update_parser = sub.add_parser(
@@ -388,7 +366,8 @@ def main(argv: list[str] | None = None) -> int:
         "--style",
         choices=["markdown", "html", "sqlite"],
         default=None,
-        help="Force a plan file format. Defaults to auto-detect from existing setup.",
+        help="Switch to a different plan format, migrating existing plans."
+        " Defaults to auto-detect from existing setup.",
     )
 
     args = parser.parse_args(argv)
@@ -409,7 +388,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Error: {target_dir} is not a directory.", file=sys.stderr)
             return 1
 
-        actions = init_project(target_dir, target_name, args.style)
+        installed = _detect_installed_targets(target_dir)
+        current_style = _detect_style(target_dir, installed) if installed else None
+        style = args.style
+        if style is None:
+            style = current_style or "markdown"
+
+        actions: list[str] = []
+        if current_style is not None and style != current_style:
+            actions.extend(migrate_plans(target_dir / ".plans", current_style, style))
+        actions.extend(init_project(target_dir, target_name, style))
+        # Keep any other already-installed targets on the same style
+        if current_style is not None and style != current_style:
+            for name in installed:
+                if name != target_name:
+                    actions.extend(init_project(target_dir, name, style))
         print(f"\n  Initialized planager for {TARGETS[target_name]['label']} in {target_dir}\n")
         for action in actions:
             print(f"    {action}")

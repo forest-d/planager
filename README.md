@@ -42,14 +42,14 @@ its agent needs.
 Options:
 
 ```
-uvx planager init [target] [--path DIR] [--style markdown|html]
+uvx planager init [target] [--path DIR] [--style markdown|html|sqlite]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `target` | *(interactive)* | Agent to set up: `claude`, `pi`, or `codex` |
 | `--path` | `.` | Project root directory |
-| `--style` | `markdown` | Plan file format: `markdown` or `html` |
+| `--style` | *(existing style, else `markdown`)* | Plan format: `markdown`, `html`, or `sqlite` |
 
 That's it. No runtime dependencies, no background processes.
 
@@ -57,9 +57,11 @@ That's it. No runtime dependencies, no background processes.
 
 After `planager init`, your project gets:
 
-- **`.plans/`** - directory where feature plans live (markdown or HTML files).
+- **`.plans/`** - directory where feature plans live (markdown or HTML files,
+  or a single `plans.db` with `--style sqlite`).
 - **`.plans/done/`** - archive for completed plans. Excluded from
-  `/planager-status` and session-start checks.
+  `/planager-status` and session-start checks. (SQLite plans use an `archived`
+  flag instead.)
 - **Agent-specific skill directory** - slash commands for creating and checking plans.
 - **Instruction file** - instructions that make the agent automatically discover
   and follow plans without you having to ask.
@@ -72,18 +74,40 @@ After `planager init`, your project gets:
 
 ## Plan styles
 
-By default, plans are markdown files. You can also use HTML:
+By default, plans are markdown files. You can also use HTML or SQLite:
 
 ```bash
 uvx planager init claude --style html
+uvx planager init claude --style sqlite
 ```
 
-HTML plans are standalone files with zero JavaScript dependencies — just HTML and
-CSS. They use `<meta>` tags for metadata and `data-status` attributes for step
-tracking, viewable directly in a browser.
+**HTML** plans are standalone files with zero JavaScript dependencies — just HTML
+and CSS. They use `<meta>` tags for metadata and `data-status` attributes for
+step tracking, viewable directly in a browser.
 
-To switch an existing project from markdown to HTML, just re-run init with
-`--style html`. The instruction snippet and skill files will be updated in place.
+**SQLite** plans live in a single `.plans/plans.db` that the agent queries and
+updates with the `sqlite3` CLI (which must be installed). Completed plans are
+archived with a flag instead of a `done/` directory. Trade-offs: plans become
+queryable and structurally consistent, but the database is a binary file — git
+diffs won't show what changed between sessions, and you can't read or edit
+plans without the `sqlite3` CLI. Prefer markdown or HTML if human-readable,
+diffable plans matter to you.
+
+## Switching styles
+
+To switch an existing project to a different style, pass `--style` to `update`
+(or re-run `init`):
+
+```bash
+uvx planager update --style html
+```
+
+This rewrites the instruction snippet and skill files for every installed agent
+**and migrates your existing plans** to the new format — markdown and HTML files
+are converted in place (including archived plans in `.plans/done/`), and
+switching to or from SQLite imports or exports the database. Any file that
+can't be parsed as a plan is left untouched and reported. Running `init` or
+`update` without `--style` always keeps the style you already have.
 
 ## How it works
 
@@ -126,7 +150,8 @@ The instruction file teaches the agent to:
 4. **Mark plans done** when a feature is complete, and offer to archive them to
    `.plans/done/`.
 
-No special tools or MCP servers - the agent reads and writes plain files.
+No special tools or MCP servers - the agent reads and writes plain files. (The
+opt-in `sqlite` style is the one exception: it relies on the `sqlite3` CLI.)
 
 ## Slash commands
 
@@ -175,13 +200,15 @@ uvx planager update
 
 This detects which agents you've already set up (and the `--style` you chose),
 and refreshes their skill files and instruction snippets to the latest version.
-Pass `--style markdown|html` to force a format switch at the same time.
+Pass `--style markdown|html|sqlite` to switch formats at the same time — see
+[Switching styles](#switching-styles).
 
 ## Idempotent
 
 Running `uvx planager init` again is safe. It updates skill files and the
-instruction snippet in place without duplicating anything. Re-initializing
-with a different `--style` cleanly replaces the previous configuration.
+instruction snippet in place without duplicating anything, and keeps whatever
+style you already chose. Re-initializing with a different `--style` cleanly
+replaces the previous configuration and migrates existing plans.
 
 ## License
 

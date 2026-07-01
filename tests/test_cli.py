@@ -3,7 +3,6 @@
 import sqlite3
 
 import pytest
-
 from planager.cli import (
     SNIPPET_MARKER,
     _detect_installed_targets,
@@ -578,7 +577,12 @@ class TestInitSqliteStyle:
     def test_db_has_expected_tables(self, tmp_path):
         init_project(tmp_path, "claude", style="sqlite")
         conn = sqlite3.connect(tmp_path / ".plans" / "plans.db")
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()}
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+        }
         conn.close()
         assert tables == {"plans", "phases", "steps"}
 
@@ -587,7 +591,8 @@ class TestInitSqliteStyle:
         conn = sqlite3.connect(tmp_path / ".plans" / "plans.db")
         cols = {r[1] for r in conn.execute("PRAGMA table_info(plans)").fetchall()}
         conn.close()
-        assert {"feature", "title", "status", "context", "notes", "created", "updated", "archived"}.issubset(cols)
+        expected = {"feature", "title", "status", "context", "notes", "created", "updated"}
+        assert (expected | {"archived"}).issubset(cols)
 
     def test_db_phases_schema(self, tmp_path):
         init_project(tmp_path, "claude", style="sqlite")
