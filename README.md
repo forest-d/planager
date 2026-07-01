@@ -175,20 +175,34 @@ dark-mode        planning     Phase 1: 0/4
 api-v2           done         5/5
 ```
 
-## Check status from the terminal
+## Browse plans from the terminal
 
-You don't need an agent session to see where things stand:
+You don't need an agent session to see where things stand. Three read-only
+commands work for every style (markdown, HTML, or SQLite — they read whatever
+is in `.plans/`), which matters most for SQLite plans, where you can't just
+open or grep the files:
 
 ```bash
-uvx planager status
+uvx planager status          # progress table across all plans
+uvx planager show            # list plan slugs and titles
+uvx planager show auth       # print a plan's full contents
+uvx planager grep bcrypt     # search every plan, grep-style
 ```
 
-This prints the same progress table directly, reading whatever is in `.plans/`
-(markdown, HTML, or SQLite — it works for every style). Plans are ordered
-in-progress, blocked, planning, done; blocked plans also show their most recent
-note so you can see what they're waiting on. Pass `--all` to include archived
-plans, and `--path DIR` to point at another project. Handy for a quick check
-before starting a session, or from scripts and CI.
+`status` orders plans in-progress, blocked, planning, done; blocked plans also
+show their most recent note so you can see what they're waiting on.
+
+`show <feature>` prints the whole plan — context, phases with `[x]`/`[ ]`
+steps, and notes. Without an argument it lists available plans in a table with
+each plan's title, status, and last-updated date. Add `--json` to either form
+for scripting.
+
+`grep <term>` searches case-insensitively across titles, context, notes, phase
+titles, and steps, printing `feature:location: match` lines. It exits non-zero
+when nothing matches, so it composes in shell scripts.
+
+All three take `--path DIR` to point at another project and `--all` to include
+archived plans (`show <feature>` always finds archived plans by name).
 
 ## Contributing
 

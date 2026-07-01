@@ -123,6 +123,15 @@ class TestSqlite:
         save_sqlite(db, [plan])
         assert load_sqlite(db)[0].archived is True
 
+    def test_resave_replaces_existing_plan(self, tmp_path):
+        db = tmp_path / "plans.db"
+        save_sqlite(db, [sample_plan()])
+        updated = sample_plan()
+        updated.status = "done"
+        updated.phases[0].steps[1].done = True
+        save_sqlite(db, [updated])
+        assert load_sqlite(db) == [updated]
+
 
 # ---------------------------------------------------------------------------
 # migrate_plans

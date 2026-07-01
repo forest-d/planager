@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
+import json
 import sqlite3
 import sys
 from importlib.resources import files
 from pathlib import Path
 
-from planager.convert import SQLITE_SCHEMA, collect_plans, migrate_plans, plan_progress
+from planager.convert import (
+    SQLITE_SCHEMA,
+    Plan,
+    collect_plans,
+    migrate_plans,
+    plan_progress,
+)
 
 SNIPPET_MARKER = "<!-- planager:start -->"
 SNIPPET_END_MARKER = "<!-- planager:end -->"
@@ -323,6 +331,21 @@ def init_project(target_dir: Path, target_name: str, style: str = "markdown") ->
 _STATUS_ORDER = {"in-progress": 0, "blocked": 1, "planning": 2, "done": 3}
 
 
+def _render_table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> str:
+    """Render rows as aligned columns with a header and rule line."""
+    widths = [max(len(h), *(len(row[i]) for row in rows)) for i, h in enumerate(headers)]
+    lines = [
+        "  ".join(h.ljust(w) for h, w in zip(headers, widths)).rstrip(),
+        "  ".join("─" * w for w in widths),
+    ]
+    lines += ["  ".join(c.ljust(w) for c, w in zip(row, widths)).rstrip() for row in rows]
+    return "\n".join(lines)
+
+
+def _display_status(plan) -> str:
+    return f"{plan.status} (archived)" if plan.archived else plan.status
+
+
 def format_status_table(plans) -> str:
     """Render plans as the aligned Feature/Status/Progress table."""
     rows = []
@@ -334,17 +357,73 @@ def format_status_table(plans) -> str:
             progress = f"{done}/{total}"
         else:
             progress = f"Phase {current}: {done}/{total}"
-        status = f"{plan.status} (archived)" if plan.archived else plan.status
-        rows.append((plan.feature, status, progress))
+        rows.append((plan.feature, _display_status(plan), progress))
+    return _render_table(("Feature", "Status", "Progress"), rows)
 
-    headers = ("Feature", "Status", "Progress")
-    widths = [max(len(h), *(len(row[i]) for row in rows)) for i, h in enumerate(headers)]
-    lines = [
-        "  ".join(h.ljust(w) for h, w in zip(headers, widths)).rstrip(),
-        "  ".join("─" * w for w in widths),
+
+def format_plan_list(plans) -> str:
+    """Render plans as the aligned Feature/Title/Status/Updated table."""
+    rows = [
+        (plan.feature, plan.title, _display_status(plan), plan.updated or "-")
+        for plan in sorted(plans, key=lambda p: p.feature)
     ]
-    lines += ["  ".join(c.ljust(w) for c, w in zip(row, widths)).rstrip() for row in rows]
+    return _render_table(("Feature", "Title", "Status", "Updated"), rows)
+
+
+def _indent(text: str) -> str:
+    return "\n".join(f"  {line}" if line.strip() else "" for line in text.splitlines())
+
+
+def format_plan(plan: Plan) -> str:
+    """Render a full plan as human-readable text."""
+    status = f"{plan.status} (archived)" if plan.archived else plan.status
+    lines = [f"{plan.title} ({plan.feature}) — {status}"]
+    dates = " · ".join(
+        part
+        for part in (
+            f"Created {plan.created}" if plan.created else "",
+            f"Updated {plan.updated}" if plan.updated else "",
+        )
+        if part
+    )
+    if dates:
+        lines.append(dates)
+    if plan.context:
+        lines += ["", "Context", "", _indent(plan.context)]
+    for num, phase in enumerate(plan.phases, 1):
+        lines += ["", f"Phase {num}: {phase.title}"]
+        if phase.description:
+            lines.append(_indent(phase.description))
+        for step in phase.steps:
+            mark = "x" if step.done else " "
+            lines.append(f"  [{mark}] {step.description}")
+    if plan.notes:
+        lines += ["", "Notes", "", _indent(plan.notes)]
     return "\n".join(lines)
+
+
+def grep_plans(plans: list[Plan], term: str) -> list[str]:
+    """Case-insensitively search plans, returning grep-style match lines."""
+    needle = term.lower()
+    matches: list[str] = []
+
+    def check(location: str, text: str) -> None:
+        for line in text.splitlines():
+            if needle in line.lower():
+                matches.append(f"{plan.feature}:{location}: {line.strip()}")
+
+    for plan in plans:
+        if needle in plan.feature.lower():
+            matches.append(f"{plan.feature}:feature: {plan.feature}")
+        check("title", plan.title)
+        check("context", plan.context)
+        for num, phase in enumerate(plan.phases, 1):
+            check(f"phase {num}", phase.title)
+            check(f"phase {num}", phase.description)
+            for order, step in enumerate(phase.steps, 1):
+                check(f"phase {num} step {order}", step.description)
+        check("notes", plan.notes)
+    return matches
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -408,6 +487,52 @@ def main(argv: list[str] | None = None) -> int:
         help="Project root directory (default: current directory).",
     )
     status_parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="show_all",
+        help="Include archived plans.",
+    )
+
+    show_parser = sub.add_parser(
+        "show",
+        help="Print a plan's full contents (or list all plans), no agent required.",
+    )
+    show_parser.add_argument(
+        "feature",
+        nargs="?",
+        help="Plan slug to show. Omit to list all plans.",
+    )
+    show_parser.add_argument(
+        "--path",
+        type=Path,
+        default=Path.cwd(),
+        help="Project root directory (default: current directory).",
+    )
+    show_parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="show_all",
+        help="Include archived plans when listing.",
+    )
+    show_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Output JSON instead of text.",
+    )
+
+    grep_parser = sub.add_parser(
+        "grep",
+        help="Search all plans for a term (works even for the SQLite style).",
+    )
+    grep_parser.add_argument("term", help="Case-insensitive search term.")
+    grep_parser.add_argument(
+        "--path",
+        type=Path,
+        default=Path.cwd(),
+        help="Project root directory (default: current directory).",
+    )
+    grep_parser.add_argument(
         "--all",
         action="store_true",
         dest="show_all",
@@ -494,6 +619,63 @@ def main(argv: list[str] | None = None) -> int:
             if plan.status == "blocked" and plan.notes:
                 last_note = plan.notes.strip().splitlines()[-1].strip()
                 print(f"\n{plan.feature} is blocked: {last_note}")
+        return 0
+
+    if args.command == "show":
+        plans_dir = args.path.resolve() / ".plans"
+        if not plans_dir.is_dir():
+            print("No .plans/ directory found. Run `planager init` first.", file=sys.stderr)
+            return 1
+
+        if args.feature is None:
+            plans = collect_plans(plans_dir, include_archived=args.show_all)
+            if not plans:
+                print("No plans found in .plans/.")
+                return 0
+            if args.as_json:
+                rows = []
+                for plan in plans:
+                    done, total, _ = plan_progress(plan)
+                    rows.append(
+                        {
+                            "feature": plan.feature,
+                            "title": plan.title,
+                            "status": plan.status,
+                            "archived": plan.archived,
+                            "updated": plan.updated,
+                            "done_steps": done,
+                            "total_steps": total,
+                        }
+                    )
+                print(json.dumps(rows, indent=2))
+            else:
+                print(format_plan_list(plans))
+            return 0
+
+        # Direct lookup always includes archived plans
+        plans = collect_plans(plans_dir, include_archived=True)
+        matches = [p for p in plans if p.feature == args.feature]
+        if not matches:
+            slugs = ", ".join(sorted(p.feature for p in plans)) or "none"
+            print(f"No plan named '{args.feature}'. Available: {slugs}", file=sys.stderr)
+            return 1
+        if args.as_json:
+            print(json.dumps(dataclasses.asdict(matches[0]), indent=2))
+        else:
+            print(format_plan(matches[0]))
+        return 0
+
+    if args.command == "grep":
+        plans_dir = args.path.resolve() / ".plans"
+        if not plans_dir.is_dir():
+            print("No .plans/ directory found. Run `planager init` first.", file=sys.stderr)
+            return 1
+
+        plans = collect_plans(plans_dir, include_archived=args.show_all)
+        matches = grep_plans(plans, args.term)
+        if not matches:
+            return 1
+        print("\n".join(matches))
         return 0
 
     return 1

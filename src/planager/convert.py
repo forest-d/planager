@@ -367,6 +367,12 @@ def save_sqlite(db_path: Path, plans: list[Plan]) -> None:
         conn.executescript(SQLITE_SCHEMA)
         for plan in plans:
             conn.execute(
+                "DELETE FROM steps WHERE phase_id IN"
+                " (SELECT id FROM phases WHERE plan_feature=?)",
+                (plan.feature,),
+            )
+            conn.execute("DELETE FROM phases WHERE plan_feature=?", (plan.feature,))
+            conn.execute(
                 "INSERT OR REPLACE INTO plans"
                 " (feature, title, status, context, notes, created, updated, archived)"
                 " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
